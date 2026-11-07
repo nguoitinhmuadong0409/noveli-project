@@ -178,8 +178,16 @@ export async function searchBooks(req: Request, res: Response): Promise<void> {
 
     await cacheSet(cacheKey, normalizedBooks, BOOK_CACHE_TTL);
     res.json({ books: normalizedBooks, source: 'google_books' });
-  } catch (err) {
-    console.error('[Books] Google Books API error:', err);
+    } catch (err) {
+    if (axios.isAxiosError(err)) {
+      console.error(
+        '[Books] Google Books API error:',
+        err.response?.status,
+        JSON.stringify(err.response?.data),
+      );
+    } else {
+      console.error('[Books] Google Books API error:', err);
+    }
     res.status(502).json({ error: 'Book search service temporarily unavailable' });
   }
 }

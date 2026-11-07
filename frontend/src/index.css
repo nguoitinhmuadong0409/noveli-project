@@ -1,0 +1,398 @@
+/* ============================================================
+   novoli – MULTI-THEME EYE-CARE DESIGN SYSTEM
+   8 Curated Soft & Gentle Themes for Maximum Reading Comfort
+============================================================ */
+
+:root {
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Default Theme: Giấy Cổ Điển Sepia (Warm Classic Paper) */
+  --ig-bg: #f6efe2;
+  --ig-surface: #fcf8f0;
+  --ig-elevated: #ede2cf;
+  --ig-border: #ded1ba;
+  --ig-border-subtle: #ebe0cd;
+  --ig-text: #382c21;
+  --ig-text-secondary: #6e5b4b;
+  --ig-text-muted: #9c8774;
+  --ig-link: #8c4e1f;
+
+  --ig-story-gradient: linear-gradient(45deg, #d97706 0%, #b45309 50%, #78350f 100%);
+  --ig-primary-blue: #8c4e1f;
+  --ig-primary-hover: #733f17;
+  --ig-heart-red: #ff3040;
+
+  --amber-400: #a8622c;
+  --amber-500: #8c4e1f;
+  --amber-glow: rgba(140, 78, 31, 0.2);
+  --emerald-400: #34d399;
+  --emerald-500: #10b981;
+  --rose-400: #fb7185;
+  --rose-500: #f43f5e;
+  --indigo-400: #818cf8;
+  --indigo-500: #6366f1;
+
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Semantic Theme Aliases */
+  --bg-surface: var(--ig-surface);
+  --bg-surface-elevated: var(--ig-elevated);
+  --border-subtle: var(--ig-border-subtle);
+  --border-default: var(--ig-border);
+  --text-primary: var(--ig-text);
+  --text-secondary: var(--ig-text-secondary);
+  --text-muted: var(--ig-text-muted);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   1. DARK THEMES (DỊU MẮT BAN ĐÊM)
+───────────────────────────────────────────────────────────── */
+
+/* 1A. Dark Midnight (OLED Deep) */
+[data-theme='dark-midnight'] {
+  --ig-bg: #000000;
+  --ig-surface: #121212;
+  --ig-elevated: #1f1f1f;
+  --ig-border: #2a2a2a;
+  --ig-border-subtle: #1c1c1c;
+  --ig-text: #f5f5f5;
+  --ig-text-secondary: #a8a8a8;
+  --ig-text-muted: #737373;
+}
+
+/* 1B. Dark Warm Coffee / Espresso (Ấm áp, chống chói lóa) */
+[data-theme='dark-coffee'] {
+  --ig-bg: #151210;
+  --ig-surface: #1e1916;
+  --ig-elevated: #28221e;
+  --ig-border: #362e28;
+  --ig-border-subtle: #241e1a;
+  --ig-text: #f5ede6;
+  --ig-text-secondary: #c2b0a3;
+  --ig-text-muted: #8c7c70;
+  --amber-400: #f6c06d;
+  --amber-500: #e09f45;
+  --ig-primary-blue: #d49547;
+  --ig-primary-hover: #b87b32;
+  --ig-story-gradient: linear-gradient(45deg, #d49547 0%, #b86b32 50%, #944b25 100%);
+}
+
+/* 1C. Dark Forest / Sage Night (Xanh rêu bảo vệ thị lực) */
+[data-theme='dark-forest'] {
+  --ig-bg: #0d1412;
+  --ig-surface: #131f1c;
+  --ig-elevated: #1a2b27;
+  --ig-border: #243c35;
+  --ig-border-subtle: #182823;
+  --ig-text: #eaf3f0;
+  --ig-text-secondary: #a1b8af;
+  --ig-text-muted: #6b847b;
+  --amber-400: #34d399;
+  --amber-500: #10b981;
+  --ig-primary-blue: #10b981;
+  --ig-primary-hover: #059669;
+  --ig-story-gradient: linear-gradient(45deg, #10b981 0%, #059669 50%, #047857 100%);
+}
+
+/* 1D. Dark Deep Navy / Ocean (Xanh biển thẫm tĩnh lặng) */
+[data-theme='dark-navy'] {
+  --ig-bg: #090e1a;
+  --ig-surface: #10182b;
+  --ig-elevated: #17223b;
+  --ig-border: #223254;
+  --ig-border-subtle: #152038;
+  --ig-text: #edf2fc;
+  --ig-text-secondary: #9cb1d6;
+  --ig-text-muted: #677ea8;
+  --amber-400: #60a5fa;
+  --amber-500: #3b82f6;
+  --ig-primary-blue: #3b82f6;
+  --ig-primary-hover: #2563eb;
+  --ig-story-gradient: linear-gradient(45deg, #38bdf8 0%, #3b82f6 50%, #6366f1 100%);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   2. LIGHT THEMES (ÊM DỊU BAN NGÀY - KHÔNG ÁNH SÁNG XANH)
+───────────────────────────────────────────────────────────── */
+
+/* 2A. Light Warm Sepia (Giấy cổ điển kinh điển) */
+[data-theme='light-sepia'] {
+  --ig-bg: #f6efe2;
+  --ig-surface: #fcf8f0;
+  --ig-elevated: #ede2cf;
+  --ig-border: #ded1ba;
+  --ig-border-subtle: #ebe0cd;
+  --ig-text: #382c21;
+  --ig-text-secondary: #6e5b4b;
+  --ig-text-muted: #9c8774;
+  --amber-400: #a8622c;
+  --amber-500: #8c4e1f;
+  --ig-primary-blue: #8c4e1f;
+  --ig-primary-hover: #733f17;
+  --ig-story-gradient: linear-gradient(45deg, #d97706 0%, #b45309 50%, #78350f 100%);
+}
+
+/* 2B. Light Cream / Oat Milk (Sữa yến mạch tối giản) */
+[data-theme='light-cream'] {
+  --ig-bg: #f8f8fa;
+  --ig-surface: #ffffff;
+  --ig-elevated: #f0f1f4;
+  --ig-border: #e2e4e8;
+  --ig-border-subtle: #eceef2;
+  --ig-text: #1d2127;
+  --ig-text-secondary: #616973;
+  --ig-text-muted: #8b939e;
+  --amber-400: #d97706;
+  --amber-500: #b45309;
+  --ig-primary-blue: #0969da;
+  --ig-primary-hover: #0856b3;
+  --ig-story-gradient: linear-gradient(45deg, #f09433 0%, #e6683c 50%, #bc1888 100%);
+}
+
+/* 2C. Light Matcha / Sage Cream (Trà xanh dịu mắt) */
+[data-theme='light-matcha'] {
+  --ig-bg: #f2f7f3;
+  --ig-surface: #fbfdfb;
+  --ig-elevated: #e5efe7;
+  --ig-border: #d0e0d3;
+  --ig-border-subtle: #e1ede3;
+  --ig-text: #1c3222;
+  --ig-text-secondary: #4a6652;
+  --ig-text-muted: #75917c;
+  --amber-400: #15803d;
+  --amber-500: #166534;
+  --ig-primary-blue: #15803d;
+  --ig-primary-hover: #166534;
+  --ig-story-gradient: linear-gradient(45deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
+}
+
+/* 2D. Light Peach Sunset (Hoàng hôn phấn pastel) */
+[data-theme='light-peach'] {
+  --ig-bg: #fcf5f1;
+  --ig-surface: #ffffff;
+  --ig-elevated: #f6ebe4;
+  --ig-border: #edd7cd;
+  --ig-border-subtle: #f5e4dc;
+  --ig-text: #3a2b26;
+  --ig-text-secondary: #705851;
+  --ig-text-muted: #9c8078;
+  --amber-400: #e06847;
+  --amber-500: #c25132;
+  --ig-primary-blue: #e06847;
+  --ig-primary-hover: #c25132;
+  --ig-story-gradient: linear-gradient(45deg, #fb923c 0%, #f43f5e 50%, #e11d48 100%);
+}
+
+/* ─── Global Reset & Typography ────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--ig-bg);
+  color: var(--ig-text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--ig-text);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+/* ─── Instagram Story Rings ────────────────────────────────── */
+.story-ring-active {
+  background: var(--ig-story-gradient);
+  padding: 2.5px;
+  border-radius: 50%;
+  display: inline-flex;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.story-ring-active:hover {
+  transform: scale(1.05);
+}
+
+.story-ring-seen {
+  background: var(--ig-border);
+  padding: 2px;
+  border-radius: 50%;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.story-avatar-inner {
+  border: 2px solid var(--ig-bg);
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--ig-surface);
+}
+
+/* ─── Double Tap Heart Animation ───────────────────────────── */
+@keyframes heartBurst {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.95; }
+  75% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; }
+}
+
+.double-tap-heart {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+  z-index: 10;
+  animation: heartBurst 800ms ease-out forwards;
+}
+
+/* ─── Buttons ──────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.btn:active {
+  opacity: 0.7;
+}
+
+.btn-primary {
+  background-color: var(--ig-primary-blue);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--ig-primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--ig-elevated);
+  color: var(--ig-text);
+  border: 1px solid var(--ig-border);
+}
+
+.btn-secondary:hover {
+  filter: brightness(1.08);
+}
+
+.btn-sm {
+  padding: 5px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+/* ─── Badges ───────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-amber {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--amber-400);
+}
+
+.badge-rose {
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--rose-400);
+}
+
+.badge-emerald {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--emerald-400);
+}
+
+.badge-indigo {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--indigo-400);
+}
+
+/* ─── Form Inputs ──────────────────────────────────────────── */
+.input-field {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--ig-elevated);
+  border: 1px solid var(--ig-border);
+  color: var(--ig-text);
+  font-size: 14px;
+  transition: border-color var(--transition-fast);
+}
+
+.input-field:focus {
+  border-color: var(--ig-text-muted);
+}
+
+/* ─── Animations ───────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 200ms ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 250ms ease-out forwards;
+}
+
+/* ─── Custom Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ig-elevated);
+  border-radius: 3px;
+}

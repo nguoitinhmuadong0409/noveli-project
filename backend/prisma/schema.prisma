@@ -1,0 +1,332 @@
+// ============================================================
+//  novoli – Prisma Schema (PostgreSQL 16)
+//  Principal Architect: Production-grade, Privacy-first
+// ============================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+// ─────────────────────────────────────────────
+//  ENUMS
+// ─────────────────────────────────────────────
+
+enum ShelfType {
+  WANT_TO_READ
+  CURRENTLY_READING
+  READ
+  DID_NOT_FINISH
+  CUSTOM
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+  PAUSED
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+// ─────────────────────────────────────────────
+//  1. USERS
+// ─────────────────────────────────────────────
+
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  biDanh           String    @unique @db.VarChar(30)
+  passwordHash     String    @db.Text
+  recoveryKeyHash  String    @db.Text
+  avatarSeed       String    @db.VarChar(64)
+  preferences      Json      @default("{}")
+  currentStreak    Int       @default(0)
+  longestStreak    Int       @default(0)
+  lastReadDate     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+role             String    @default("user")
+  refreshTokens     RefreshToken[]
+  pushSubscriptions PushSubscription[]
+  shelves           Shelf[]
+  reviews           Review[]
+  readingLogs       ReadingLog[]
+  goals             Goal[]
+  conversationMemberships ConversationMember[]
+  sentMessages      Message[]
+
+  @@index([biDanh])
+  @@map("users")
+}
+
+model Conversation {
+  id        String           @id @default(uuid()) @db.Uuid
+  type      ConversationType
+  name      String?          @db.VarChar(80)
+  directKey String?          @unique @db.VarChar(73)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  members   ConversationMember[]
+  messages  Message[]
+
+  @@index([updatedAt(sort: Desc)])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  userId         String       @db.Uuid
+  role           String       @default("MEMBER") @db.VarChar(10)
+  joinedAt       DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId, joinedAt(sort: Desc)])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  senderId       String       @db.Uuid
+  content        String       @db.VarChar(2000)
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([senderId, createdAt(sort: Desc)])
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────
+//  2. REFRESH TOKENS
+// ─────────────────────────────────────────────
+
+model RefreshToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  tokenHash  String   @unique @db.Char(64)
+  deviceType String   @default("web") @db.VarChar(32)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────
+//  3. PUSH SUBSCRIPTIONS
+// ─────────────────────────────────────────────
+
+model PushSubscription {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  endpoint     String   @unique @db.Text
+  p256dhKey    String   @db.Text
+  authKey      String   @db.Text
+  reminderTime String?  @db.VarChar(5)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([reminderTime, isActive])
+  @@map("push_subscriptions")
+}
+
+// ─────────────────────────────────────────────
+//  4. BOOKS
+// ─────────────────────────────────────────────
+
+model Book {
+  id            String    @id @default(uuid()) @db.Uuid
+  googleBookId  String?   @unique @db.VarChar(32)
+  isbn13        String?   @unique @db.Char(13)
+  title         String    @db.VarChar(512)
+  authors       String[]
+  description   String?   @db.Text
+  coverUrl      String?   @db.Text
+  pageCount     Int?
+  categories    String[]
+  publishedDate String?   @db.VarChar(20)
+  avgRating     Decimal   @default(0) @db.Decimal(3, 2)
+  ratingsCount  Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  shelves     Shelf[]
+  reviews     Review[]
+  readingLogs ReadingLog[]
+  threads     Thread[]
+
+  @@index([title])
+  @@index([avgRating])
+  @@map("books")
+}
+
+// ─────────────────────────────────────────────
+//  5. SHELVES
+// ─────────────────────────────────────────────
+
+model Shelf {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @db.Uuid
+  bookId          String    @db.Uuid
+  type            ShelfType @default(WANT_TO_READ)
+  customShelfName String?   @db.VarChar(100)
+  currentPage     Int       @default(0)
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book            Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([userId, type])
+  @@index([bookId])
+  @@map("shelves")
+}
+
+// ─────────────────────────────────────────────
+//  6. REVIEWS
+// ─────────────────────────────────────────────
+
+model Review {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  bookId         String   @db.Uuid
+  rating         Int      @db.SmallInt
+  content        String   @db.Text
+  hasSpoilers    Boolean  @default(false)
+  isAnonymous    Boolean  @default(false)
+  anonymousAlias String?  @db.VarChar(60)
+  likesCount     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book           Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([bookId, createdAt(sort: Desc)])
+  @@index([bookId, rating])
+  @@map("reviews")
+}
+
+// ─────────────────────────────────────────────
+//  7. THREADS
+//  PRIVACY: NO userId FK – only HMAC-derived authorHash
+// ─────────────────────────────────────────────
+
+model Thread {
+  id           String   @id @default(uuid()) @db.Uuid
+  bookId       String?  @db.Uuid
+  title        String   @db.VarChar(300)
+  content      String   @db.Text
+  tags         String[]
+  hasSpoilers  Boolean  @default(false)
+  authorHash   String   @db.Char(64)
+  displayAlias String   @db.VarChar(80)
+  viewsCount   Int      @default(0)
+  postsCount   Int      @default(0)
+  isPinned     Boolean  @default(false)
+  isLocked     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  book         Book?    @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  posts        Post[]
+
+  @@index([bookId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("threads")
+}
+
+// ─────────────────────────────────────────────
+//  8. POSTS
+// ─────────────────────────────────────────────
+
+model Post {
+  id           String   @id @default(uuid()) @db.Uuid
+  threadId     String   @db.Uuid
+  parentPostId String?  @db.Uuid
+  content      String   @db.Text
+  hasSpoilers  Boolean  @default(false)
+  authorHash   String   @db.Char(64)
+  displayAlias String   @db.VarChar(80)
+  isOp         Boolean  @default(false)
+  upvotes      Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  thread       Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  parent       Post?    @relation("PostReplies", fields: [parentPostId], references: [id], onDelete: Cascade)
+  replies      Post[]   @relation("PostReplies")
+
+  @@index([threadId, createdAt(sort: Asc)])
+  @@index([parentPostId])
+  @@map("posts")
+}
+
+// ─────────────────────────────────────────────
+//  9. READING LOGS
+// ─────────────────────────────────────────────
+
+model ReadingLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  clientLogId     String   @unique @db.Uuid
+  userId          String   @db.Uuid
+  bookId          String   @db.Uuid
+  startPage       Int
+  endPage         Int
+  pagesRead       Int
+  durationMinutes Int      @default(0)
+  note            String?  @db.Text
+  loggedAt        DateTime
+  createdAt       DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book            Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([userId, loggedAt(sort: Desc)])
+  @@index([loggedAt, userId])
+  @@index([userId, bookId])
+  @@map("reading_logs")
+}
+
+// ─────────────────────────────────────────────
+//  10. GOALS
+// ─────────────────────────────────────────────
+
+model Goal {
+  id             String     @id @default(uuid()) @db.Uuid
+  userId         String     @db.Uuid
+  year           Int        @db.SmallInt
+  targetBooks    Int        @default(12)
+  completedBooks Int        @default(0)
+  targetPages    Int?
+  completedPages Int        @default(0)
+  status         GoalStatus @default(ACTIVE)
+  updatedAt      DateTime   @updatedAt
+
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year])
+  @@index([userId, year(sort: Desc)])
+  @@map("goals")
+}

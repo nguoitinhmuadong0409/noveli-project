@@ -142,8 +142,13 @@ export async function searchBooks(req: Request, res: Response): Promise<void> {
   }
 
   try {
-    const response = await axios.get(GOOGLE_BOOKS_API, {
-      params: { q: googleQuery, maxResults: 10, fields: 'items(id,volumeInfo)' },
+        const response = await axios.get(GOOGLE_BOOKS_API, {
+      params: {
+        q: googleQuery,
+        maxResults: 10,
+        fields: 'items(id,volumeInfo)',
+        key: process.env.GOOGLE_BOOKS_API_KEY,
+      },
       timeout: 5000,
     });
 

@@ -66,15 +66,8 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onSelectBook, onOpen
 
     setSearching(true);
     try {
-      // 1. First search local database
       const localRes = await api.getBooks({ search: searchQuery.trim() });
-      if (localRes.books && localRes.books.length > 0) {
-        setBooks(localRes.books);
-      } else {
-        // 2. If not found locally, query Google Books API via lazy-sync
-        const googleRes = await api.searchGoogleBooks(searchQuery.trim());
-        setBooks(googleRes.books || []);
-      }
+      setBooks(localRes.books || []);
     } catch (err) {
       console.error('Search failed:', err);
     } finally {

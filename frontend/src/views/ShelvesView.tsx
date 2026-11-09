@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ShelfItem, ShelfType, Book } from '../types';
 import { api } from '../services/api';
 import { ReadingProgressModal } from '../components/ReadingProgressModal';
+import { BookReaderModal } from '../components/BookReaderModal';
+import { getBookCover } from '../utils/bookCover';
 import { BookOpen, CheckCircle, Clock, Trash2, Edit3, Compass } from 'lucide-react';
 
 interface ShelvesViewProps {

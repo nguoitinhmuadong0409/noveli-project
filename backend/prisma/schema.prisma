@@ -163,6 +163,7 @@ model Book {
   authors       String[]
   description   String?   @db.Text
   coverUrl      String?   @db.Text
+  driveFileId   String?   @db.Text
   pageCount     Int?
   categories    String[]
   publishedDate String?   @db.VarChar(20)

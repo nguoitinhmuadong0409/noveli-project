@@ -1,36 +1,13 @@
-import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
-import axios from 'axios';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { cacheGet, cacheSet, cacheDel } from '../../config/redis';
 import { z } from 'zod';
 
 const BOOK_CACHE_TTL = 60 * 60 * 6; // 6 hours
-const GOOGLE_BOOKS_API = 'https://www.googleapis.com/books/v1/volumes';
-
-// ─── Normalize Google Books API response ─────────────────────────────────────
-function normalizeGoogleBook(volume: Record<string, unknown>): Record<string, unknown> {
-  const info = volume.volumeInfo as Record<string, unknown>;
-  const isbns = ((info.industryIdentifiers as Array<{ type: string; identifier: string }>) ?? []);
-  const isbn13 = isbns.find((i) => i.type === 'ISBN_13')?.identifier ?? null;
-  const coverUrl =
-    (info.imageLinks as Record<string, string>)?.thumbnail?.replace('http://', 'https://') ?? null;
-
-  return {
-    googleBookId: String(volume.id ?? ''),
-    isbn13,
-    title: String(info.title ?? 'Unknown Title'),
-    authors: Array.isArray(info.authors) ? info.authors : [],
-    description: typeof info.description === 'string' ? info.description : null,
-    coverUrl,
-    pageCount: typeof info.pageCount === 'number' ? info.pageCount : null,
-    categories: Array.isArray(info.categories) ? info.categories : [],
-    publishedDate: typeof info.publishedDate === 'string' ? info.publishedDate : null,
-  };
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  GET /api/v1/books
+//  GET /api/v1/books  (chỉ sách đã có link Drive)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function listBooks(req: Request, res: Response): Promise<void> {
@@ -42,7 +19,7 @@ export async function listBooks(req: Request, res: Response): Promise<void> {
   const search = req.query.search as string | undefined;
   const sort = (req.query.sort as string) || 'rating';
 
-     const whereClause: Record<string, unknown> = { driveFileId: { not: null } };
+  const whereClause: Record<string, unknown> = { driveFileId: { not: null } };
 
   if (category) {
     whereClause.categories = { has: category };
@@ -101,7 +78,7 @@ export async function listBooks(req: Request, res: Response): Promise<void> {
     prisma.book.count({ where: whereClause }),
   ]);
 
-  await cacheSet(cacheKey, { books, total }, 600); // 10 minutes cache
+  await cacheSet(cacheKey, { books, total }, 60); // 1 minute cache
 
   res.json({
     books,
@@ -113,90 +90,6 @@ export async function listBooks(req: Request, res: Response): Promise<void> {
     },
     source: 'db',
   });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  GET /api/v1/books/search?q=&isbn=
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function searchBooks(req: Request, res: Response): Promise<void> {
-  const query = req.query.q as string | undefined;
-  const isbn = req.query.isbn as string | undefined;
-
-  if (!query && !isbn) {
-    res.status(400).json({ error: 'Provide either q (search query) or isbn parameter' });
-    return;
-  }
-
-  const cacheKey = `books:search:${isbn ?? query}`;
-  const cached = await cacheGet<unknown[]>(cacheKey);
-  if (cached) {
-    res.json({ books: cached, source: 'cache' });
-    return;
-  }
-
-  // Build Google Books search query
-  let googleQuery = '';
-  if (isbn) {
-    googleQuery = `isbn:${isbn}`;
-  } else if (query) {
-    googleQuery = query;
-  }
-
-  try {
-        const response = await axios.get(GOOGLE_BOOKS_API, {
-      params: {
-        q: googleQuery,
-        maxResults: 10,
-        fields: 'items(id,volumeInfo)',
-        key: process.env.GOOGLE_BOOKS_API_KEY,
-      },
-      timeout: 5000,
-    });
-
-    const items: Record<string, unknown>[] = response.data?.items ?? [];
-    const normalizedBooks = items.map(normalizeGoogleBook);
-
-    // Lazy-sync: upsert books found from Google Books into our DB
-    for (const book of normalizedBooks) {
-      if (book.googleBookId) {
-        await prisma.book.upsert({
-          where: { googleBookId: String(book.googleBookId) },
-          update: {
-            title: String(book.title),
-            authors: book.authors as string[],
-            coverUrl: book.coverUrl as string | null,
-            pageCount: book.pageCount as number | null,
-          },
-          create: {
-            googleBookId: String(book.googleBookId),
-            isbn13: book.isbn13 as string | null,
-            title: String(book.title),
-            authors: book.authors as string[],
-            description: book.description as string | null,
-            coverUrl: book.coverUrl as string | null,
-            pageCount: book.pageCount as number | null,
-            categories: book.categories as string[],
-            publishedDate: book.publishedDate as string | null,
-          },
-        }).catch(() => {});
-      }
-    }
-
-    await cacheSet(cacheKey, normalizedBooks, BOOK_CACHE_TTL);
-    res.json({ books: normalizedBooks, source: 'google_books' });
-    } catch (err) {
-    if (axios.isAxiosError(err)) {
-      console.error(
-        '[Books] Google Books API error:',
-        err.response?.status,
-        JSON.stringify(err.response?.data),
-      );
-    } else {
-      console.error('[Books] Google Books API error:', err);
-    }
-    res.status(502).json({ error: 'Book search service temporarily unavailable' });
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -351,6 +244,17 @@ export async function createBookReview(req: Request, res: Response): Promise<voi
     where: { id: bookId },
     data: { avgRating, ratingsCount },
   });
+
+  // Invalidate cache
+  await cacheDel(`books:detail:${bookId}`);
+
+  res.status(201).json({ review });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ADMIN: thêm / sửa / xóa sách
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function isAdmin(userId: string): Promise<boolean> {
   const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
   return u?.role?.toLowerCase() === 'admin';
@@ -436,9 +340,4 @@ export async function deleteBook(req: Request, res: Response): Promise<void> {
   } catch {
     res.status(404).json({ error: 'Book not found' });
   }
-}
-  // Invalidate cache
-  await cacheDel(`books:detail:${bookId}`);
-
-  res.status(201).json({ review });
 }

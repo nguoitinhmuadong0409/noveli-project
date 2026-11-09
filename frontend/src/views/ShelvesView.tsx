@@ -135,7 +135,7 @@ export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) 
               >
                 {/* Cover */}
                 <img
-                  src={item.book.coverUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=300'}
+                  src={getBookCover(item.book)}
                   alt={item.book.title}
                   style={{ width: 64, height: 96, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
                 />
@@ -211,6 +211,13 @@ export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) 
           })}
         </div>
       )}
+         {readingBook && (
+     <BookReaderModal
+       book={readingBook}
+       onClose={() => setReadingBook(null)}
+       onShelfChanged={() => { void loadShelves(); }}
+     />
+   )}
 
       {/* Progress Modal */}
       {progressModalItem && (

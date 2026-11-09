@@ -14,21 +14,50 @@ export const ForumView: React.FC = () => {
 
   const availableTags = ['Tất cả', '1984', 'RừngNaUy', 'TriếtHọc', 'TâmLý', 'Spoiler'];
 
-  const loadThreads = async () => {
-    setLoading(true);
+  // silent = true: tải lại danh sách ngầm, không hiện "Đang tải..." (dùng khi đóng modal)
+  const loadThreads = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await api.getThreads();
       setThreads(data.threads || []);
     } catch (err) {
       console.error('Failed to load threads:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadThreads();
   }, []);
+
+  // Mở thread: gọi GET /forum/threads/:id để backend tăng lượt xem,
+  // rồi cập nhật số liệu ngay trong danh sách.
+  const openThread = (thread: Thread) => {
+    setSelectedThread(thread);
+
+    api
+      .getThread(thread.id)
+      .then(({ thread: fresh }) => {
+        // Backend trả viewsCount TRƯỚC khi cộng 1, nên cộng thêm 1 ở đây.
+        const views = (fresh.viewsCount ?? thread.viewsCount ?? 0) + 1;
+        const posts = fresh.postsCount ?? thread.postsCount;
+
+        setThreads((prev) =>
+          prev.map((t) => (t.id === thread.id ? { ...t, viewsCount: views, postsCount: posts } : t)),
+        );
+        setSelectedThread((cur) =>
+          cur && cur.id === thread.id ? { ...cur, viewsCount: views, postsCount: posts } : cur,
+        );
+      })
+      .catch((err) => console.error('Failed to load thread detail:', err));
+  };
+
+  // Đóng thread: tải lại danh sách để cập nhật số phản hồi/lượt xem mới nhất.
+  const closeThread = () => {
+    setSelectedThread(null);
+    loadThreads(true);
+  };
 
   const filteredThreads = threads.filter((t) => {
     if (filterTag === 'Tất cả') return true;
@@ -128,7 +157,7 @@ export const ForumView: React.FC = () => {
                 flexDirection: 'column',
                 gap: 12,
               }}
-              onClick={() => setSelectedThread(thread)}
+              onClick={() => openThread(thread)}
             >
               {/* Top metadata */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
@@ -184,7 +213,7 @@ export const ForumView: React.FC = () => {
       {selectedThread && (
         <ThreadDetailModal
           thread={selectedThread}
-          onClose={() => setSelectedThread(null)}
+          onClose={closeThread}
         />
       )}
 

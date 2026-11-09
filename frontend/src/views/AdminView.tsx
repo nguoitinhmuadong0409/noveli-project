@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, BookOpen, MessageSquare, RefreshCw, Shield, Star, Users } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { AdminBookManager } from '../components/AdminBookManager';
+
 type AdminDashboardData = Awaited<ReturnType<typeof api.getAdminDashboard>>;
 type AdminAccount = AdminDashboardData['users'][number];
 
@@ -145,7 +147,7 @@ export const AdminView: React.FC = () => {
               {dashboard.isOwner ? 'Chỉ chủ sở hữu mới có thể cấp hoặc thu hồi quyền admin.' : 'Chỉ xem được danh sách; quyền admin do chủ sở hữu quản lý.'}
             </span>
           </div>
-          <div style={{ overflowX: 'auto', border: '1px solid var(--ig-border)', borderRadius: 12 }}>
+          <div style={{ overflowX: 'auto', border: '1px solid var(--ig-border)', borderRadius: 12, marginBottom: 32 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650, background: 'var(--ig-surface)' }}>
               <thead>
                 <tr style={{ textAlign: 'left', color: 'var(--ig-text-secondary)', fontSize: 13 }}>
@@ -183,21 +185,21 @@ export const AdminView: React.FC = () => {
                       {dashboard.isOwner && (
                         <td style={{ padding: '14px 16px' }}>
                           <button
-                          type="button"
-                          disabled={isSelf || savingUserId === account.id}
-                          onClick={() => void changeRole(account)}
-                          title={isSelf ? 'Không thể thay đổi quyền của chính mình' : undefined}
-                          style={{
-                            padding: '7px 10px',
-                            borderRadius: 8,
-                            border: '1px solid var(--ig-border)',
-                            background: 'var(--ig-elevated)',
-                            color: 'var(--ig-text)',
-                            cursor: isSelf || savingUserId === account.id ? 'not-allowed' : 'pointer',
-                            opacity: isSelf || savingUserId === account.id ? 0.55 : 1,
-                          }}
-                        >
-                          {savingUserId === account.id ? 'Đang lưu...' : account.role === 'admin' ? 'Gỡ admin' : 'Cấp admin'}
+                            type="button"
+                            disabled={isSelf || savingUserId === account.id}
+                            onClick={() => void changeRole(account)}
+                            title={isSelf ? 'Không thể thay đổi quyền của chính mình' : undefined}
+                            style={{
+                              padding: '7px 10px',
+                              borderRadius: 8,
+                              border: '1px solid var(--ig-border)',
+                              background: 'var(--ig-elevated)',
+                              color: 'var(--ig-text)',
+                              cursor: isSelf || savingUserId === account.id ? 'not-allowed' : 'pointer',
+                              opacity: isSelf || savingUserId === account.id ? 0.55 : 1,
+                            }}
+                          >
+                            {savingUserId === account.id ? 'Đang lưu...' : account.role === 'admin' ? 'Gỡ admin' : 'Cấp admin'}
                           </button>
                         </td>
                       )}
@@ -207,6 +209,8 @@ export const AdminView: React.FC = () => {
               </tbody>
             </table>
           </div>
+          
+          <AdminBookManager onChanged={() => void loadDashboard()} />
         </>
       ) : null}
     </section>

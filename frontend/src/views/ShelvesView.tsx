@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShelfItem, ShelfType, Book } from '../types';
 import { api } from '../services/api';
-({ onNavigateDiscover }) } from '../components/ReadingProgressModal';
+import { ReadingProgressModal } from '../components/ReadingProgressModal';
 import { BookReaderModal } from '../components/BookReaderModal';
 import { getBookCover } from '../utils/bookCover';
 import { BookOpen, CheckCircle, Clock, Trash2, Edit3, Compass } from 'lucide-react';
@@ -11,22 +11,23 @@ interface ShelvesViewProps {
   onNavigateDiscover: () => void;
 }
 
-export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) => {
+export const ShelvesView: React.FC<ShelvesViewProps> = ({ onSelectBook, onNavigateDiscover }) => {
   const [activeTab, setActiveTab] = useState<ShelfType>('CURRENTLY_READING');
   const [shelves, setShelves] = useState<ShelfItem[]>([]);
   const [loading, setLoading] = useState(true);
-  onClick={() => setReadingBook(item.book)}
-  [readingBook, setReadingBook] = useState<Book | null>(null);
-  tabs: { type: ShelfType; label: string; icon: React.FC<{ size?: number }> }[] = [
+  const [progressModalItem, setProgressModalItem] = useState<ShelfItem | null>(null);
+  const [readingBook, setReadingBook] = useState<Book | null>(null);
+
+  const tabs: { type: ShelfType; label: string; icon: React.FC<{ size?: number }> }[] = [
     { type: 'CURRENTLY_READING', label: 'Đang đọc', icon: BookOpen },
     { type: 'WANT_TO_READ', label: 'Muốn đọc', icon: Clock },
     { type: 'READ', label: 'Đã hoàn thành', icon: CheckCircle },
   ];
 
-  loadShelves = async () => {
+  const loadShelves = async () => {
     setLoading(true);
     try {
-      data = await api.getUserShelves(activeTab);
+      const data = await api.getUserShelves(activeTab);
       setShelves(data.shelves || []);
     } catch (err) {
       console.error('Failed to load shelves:', err);
@@ -131,7 +132,7 @@ export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) 
                   padding: 16,
                   cursor: 'pointer',
                 }}
-                onClick={() => onSelectBook(item.book)}
+                onClick={() => setReadingBook(item.book)}
               >
                 {/* Cover */}
                 <img
@@ -211,13 +212,15 @@ export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) 
           })}
         </div>
       )}
-         {readingBook && (
-     <BookReaderModal
-       book={readingBook}
-       onClose={() => setReadingBook(null)}
-       onShelfChanged={() => { void loadShelves(); }}
-     />
-   )}
+
+      {/* Book Reader Modal */}
+      {readingBook && (
+        <BookReaderModal
+          book={readingBook}
+          onClose={() => setReadingBook(null)}
+          onShelfChanged={() => { void loadShelves(); }}
+        />
+      )}
 
       {/* Progress Modal */}
       {progressModalItem && (

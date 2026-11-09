@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { prisma } from '../../config/prisma';
 import { generateForumIdentity } from '../../utils/forumIdentity';
 import { createThreadSchema, createPostSchema } from '../../utils/validation';
@@ -29,7 +30,7 @@ export async function createThread(req: Request, res: Response): Promise<void> {
 
   // We need a temporary ID to generate the identity for the thread creator.
   // We generate it here, create the thread with it, then the hash is locked in.
-  const tempThreadId = crypto.randomUUID();
+  const tempThreadId = randomUUID();
   const { authorHash, displayAlias } = generateForumIdentity(userId, tempThreadId, null);
 
   try {
@@ -51,7 +52,8 @@ export async function createThread(req: Request, res: Response): Promise<void> {
         tags: true,
         hasSpoilers: true,
         displayAlias: true,
-        isOp: true,
+        // NOTE: `isOp` does not exist on the Thread model (only on Post),
+        // so it must not be selected here. It is added to the response below.
         viewsCount: true,
         postsCount: true,
         createdAt: true,
@@ -59,6 +61,7 @@ export async function createThread(req: Request, res: Response): Promise<void> {
       },
     });
 
+    // The creator of a thread is always the OP.
     res.status(201).json({ thread: { ...thread, isOp: true } });
   } catch (err) {
     console.error('[Forum] createThread error:', err);
@@ -116,7 +119,18 @@ export async function listThreads(req: Request, res: Response): Promise<void> {
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
       skip: (page - 1) * limit,
       take: limit,
-      
+      select: {
+        id: true,
+        title: true,
+        tags: true,
+        hasSpoilers: true,
+        displayAlias: true,
+        viewsCount: true,
+        postsCount: true,
+        createdAt: true,
+        isPinned: true,
+        book: { select: { id: true, title: true, coverUrl: true } },
+      },
     }),
     prisma.thread.count({ where }),
   ]);

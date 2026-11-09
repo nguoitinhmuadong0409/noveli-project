@@ -23,6 +23,7 @@ export interface Book {
   authors: string[];
   description?: string | null;
   coverUrl?: string | null;
+  driveFileId?: string | null;
   pageCount?: number | null;
   categories: string[];
   publishedDate?: string | null;

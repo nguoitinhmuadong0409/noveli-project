@@ -116,18 +116,7 @@ export async function listThreads(req: Request, res: Response): Promise<void> {
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
       skip: (page - 1) * limit,
       take: limit,
-      select: {
-        id: true,
-        title: true,
-        tags: true,
-        hasSpoilers: true,
-        displayAlias: true,
-        viewsCount: true,
-        postsCount: true,
-        createdAt: true,
-        isPinned: true,
-        book: { select: { id: true, title: true, coverUrl: true } },
-      },
+      
     }),
     prisma.thread.count({ where }),
   ]);

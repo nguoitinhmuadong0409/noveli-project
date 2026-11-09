@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShelfItem, ShelfType, Book } from '../types';
 import { api } from '../services/api';
-import { ReadingProgressModal } from '../components/ReadingProgressModal';
+({ onNavigateDiscover }) } from '../components/ReadingProgressModal';
 import { BookReaderModal } from '../components/BookReaderModal';
 import { getBookCover } from '../utils/bookCover';
 import { BookOpen, CheckCircle, Clock, Trash2, Edit3, Compass } from 'lucide-react';
@@ -15,18 +15,18 @@ export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) 
   const [activeTab, setActiveTab] = useState<ShelfType>('CURRENTLY_READING');
   const [shelves, setShelves] = useState<ShelfItem[]>([]);
   const [loading, setLoading] = useState(true);
-  onClick={() => on setProgressModalItem] = useState<ShelfItem | null>(null);
-  const [readingBook, setReadingBook] = useState<Book | null>(null);
-  const tabs: { type: ShelfType; label: string; icon: React.FC<{ size?: number }> }[] = [
+  onClick={() => setReadingBook(item.book)}
+  [readingBook, setReadingBook] = useState<Book | null>(null);
+  tabs: { type: ShelfType; label: string; icon: React.FC<{ size?: number }> }[] = [
     { type: 'CURRENTLY_READING', label: 'Đang đọc', icon: BookOpen },
     { type: 'WANT_TO_READ', label: 'Muốn đọc', icon: Clock },
     { type: 'READ', label: 'Đã hoàn thành', icon: CheckCircle },
   ];
 
-  const loadShelves = async () => {
+  loadShelves = async () => {
     setLoading(true);
     try {
-      const data = await api.getUserShelves(activeTab);
+      data = await api.getUserShelves(activeTab);
       setShelves(data.shelves || []);
     } catch (err) {
       console.error('Failed to load shelves:', err);

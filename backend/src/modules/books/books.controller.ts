@@ -42,7 +42,7 @@ export async function listBooks(req: Request, res: Response): Promise<void> {
   const search = req.query.search as string | undefined;
   const sort = (req.query.sort as string) || 'rating';
 
-  const whereClause: Record<string, unknown> = {};
+     const whereClause: Record<string, unknown> = { driveFileId: { not: null } };
 
   if (category) {
     whereClause.categories = { has: category };

@@ -33,6 +33,7 @@ export function createApp() {
           scriptSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'https:'],
+          frameSrc: ["'self'", "https://drive.google.com"], // Thêm dòng này để cho phép nhúng Google Drive
         },
       },
       crossOriginEmbedderPolicy: false,

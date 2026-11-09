@@ -227,8 +227,23 @@ export const api = {
     return fetchWithAuth(`/books${qs ? `?${qs}` : ''}`);
   },
 
-  searchGoogleBooks: async (query: string): Promise<{ books: Book[]; source: string }> => {
-    return fetchWithAuth(`/books/search?q=${encodeURIComponent(query)}`);
+    createBook: async (data: {
+    title: string;
+    authors: string[];
+    description?: string | null;
+    coverUrl?: string | null;
+    pageCount?: number | null;
+    categories: string[];
+    driveLink: string;
+  }): Promise<{ book: Book }> => {
+    return fetchWithAuth('/books', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteBook: async (id: string): Promise<{ success: boolean }> => {
+    return fetchWithAuth(`/books/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
   getBookDetail: async (id: string): Promise<{ book: Book }> => {

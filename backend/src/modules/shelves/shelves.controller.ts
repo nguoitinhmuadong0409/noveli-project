@@ -61,7 +61,7 @@ export async function getUserShelves(req: Request, res: Response): Promise<void>
           title: true,
           authors: true,
           coverUrl: true,
-          driveFileId: true
+          driveFileId: true,
           pageCount: true,
           avgRating: true,
           categories: true,

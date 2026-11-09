@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
 import axios from 'axios';
 import { prisma } from '../../config/prisma';
@@ -349,7 +350,92 @@ export async function createBookReview(req: Request, res: Response): Promise<voi
     where: { id: bookId },
     data: { avgRating, ratingsCount },
   });
+async function isAdmin(userId: string): Promise<boolean> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  return u?.role?.toLowerCase() === 'admin';
+}
 
+function extractDriveFileId(input: string): string | null {
+  const s = input.trim();
+  const m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/) || s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if (m) return m[1];
+  return /^[a-zA-Z0-9_-]{10,}$/.test(s) ? s : null;
+}
+
+const bookBodySchema = z.object({
+  title: z.string().min(1).max(512),
+  authors: z.array(z.string().min(1)).default([]),
+  description: z.string().max(5000).nullable().optional(),
+  coverUrl: z.string().url().nullable().optional(),
+  pageCount: z.number().int().min(0).nullable().optional(),
+  categories: z.array(z.string()).default([]),
+  driveLink: z.string().min(1),
+});
+
+export async function createBook(req: Request, res: Response): Promise<void> {
+  if (!(await isAdmin(req.userId!))) {
+    res.status(403).json({ error: 'Chỉ admin mới được thêm sách' });
+    return;
+  }
+  const parsed = bookBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+    return;
+  }
+  const { driveLink, ...rest } = parsed.data;
+  const driveFileId = extractDriveFileId(driveLink);
+  if (!driveFileId) {
+    res.status(400).json({ error: 'Link Google Drive không hợp lệ' });
+    return;
+  }
+  const book = await prisma.book.create({ data: { ...rest, driveFileId } });
+  res.status(201).json({ book });
+}
+
+export async function updateBook(req: Request, res: Response): Promise<void> {
+  if (!(await isAdmin(req.userId!))) {
+    res.status(403).json({ error: 'Chỉ admin mới được sửa sách' });
+    return;
+  }
+  const id = req.params.id as string;
+  const parsed = bookBodySchema.partial().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+    return;
+  }
+  const { driveLink, ...rest } = parsed.data;
+  const data: Prisma.BookUpdateInput = { ...rest };
+  if (driveLink !== undefined) {
+    const driveFileId = extractDriveFileId(driveLink);
+    if (!driveFileId) {
+      res.status(400).json({ error: 'Link Google Drive không hợp lệ' });
+      return;
+    }
+    data.driveFileId = driveFileId;
+  }
+  try {
+    const book = await prisma.book.update({ where: { id }, data });
+    await cacheDel(`books:detail:${id}`);
+    res.json({ book });
+  } catch {
+    res.status(404).json({ error: 'Book not found' });
+  }
+}
+
+export async function deleteBook(req: Request, res: Response): Promise<void> {
+  if (!(await isAdmin(req.userId!))) {
+    res.status(403).json({ error: 'Chỉ admin mới được xóa sách' });
+    return;
+  }
+  const id = req.params.id as string;
+  try {
+    await prisma.book.delete({ where: { id } });
+    await cacheDel(`books:detail:${id}`);
+    res.json({ success: true });
+  } catch {
+    res.status(404).json({ error: 'Book not found' });
+  }
+}
   // Invalidate cache
   await cacheDel(`books:detail:${bookId}`);
 

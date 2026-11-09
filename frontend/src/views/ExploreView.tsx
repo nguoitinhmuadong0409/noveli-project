@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Book } from '../types';
 import { api } from '../services/api';
-import { Search, Heart, MessageCircle, Star, Filter } from 'lucide-react';
+import { BookReaderModal } from '../components/BookReaderModal';
+import { getBookCover } from '../utils/bookCover';
+import { Search } from 'lucide-react';
 
 interface ExploreViewProps {
   onSelectBook: (book: Book) => void;
 }
 
-export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectBook }) => {
+export const ExploreView: React.FC<ExploreViewProps> = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [searching, setSearching] = useState(false);
   const [category, setCategory] = useState('Tất cả');
+  const [readingBook, setReadingBook] = useState<Book | null>(null);
 
   const categories = ['Tất cả', 'Tiểu thuyết', 'Kinh điển', 'Self-help', 'Tâm lý học', 'Lịch sử'];
 
@@ -35,17 +38,12 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectBook }) => {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!search.trim()) return;
-
     setSearching(true);
     try {
-      const res = await api.getBooks({ search: search.trim() });
-      if (res.books && res.books.length > 0) {
-        setBooks(res.books);
-      } else {
-        const googleRes = await api.searchGoogleBooks(search.trim());
-        setBooks(googleRes.books || []);
-      }
+      const res = await api.getBooks({ search: search.trim() || undefined });
+      setBooks(res.books || []);
+    } catch (err) {
+      console.error('Search failed:', err);
     } finally {
       setSearching(false);
     }
@@ -68,7 +66,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectBook }) => {
           />
           <input
             type="text"
-            placeholder="Tìm kiếm tác phẩm, tác giả hoặc ISBN..."
+            placeholder="Tìm sách trong thư viện theo tên..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input-field"
@@ -121,10 +119,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectBook }) => {
         })}
       </div>
 
-      {/* Instagram 3-Column Square Grid */}
+      {/* Book grid */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ig-text-muted)' }}>
-          Đang tải kho sách khám phá...
+          Đang tải thư viện sách...
+        </div>
+      ) : books.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ig-text-secondary)' }}>
+          Thư viện chưa có sách nào phù hợp.
         </div>
       ) : (
         <div
@@ -134,73 +136,64 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectBook }) => {
             gap: 16,
           }}
         >
-          {books.map((book) => {
-            const likesCount = Math.floor(20 + Number(book.avgRating || 4.5) * 15);
-            const reviewsCount = book._count?.reviews || 3;
-
-            return (
-              <div
-                key={book.id}
-                onClick={() => onSelectBook(book)}
+          {books.map((book) => (
+            <div
+              key={book.id}
+              onClick={() => setReadingBook(book)}
+              style={{
+                position: 'relative',
+                width: '100%',
+                paddingTop: '130%',
+                backgroundColor: 'var(--ig-surface)',
+                borderRadius: 12,
+                overflow: 'hidden',
+                cursor: 'pointer',
+                border: '1px solid var(--ig-border)',
+              }}
+              className="explore-grid-item"
+            >
+              <img
+                src={getBookCover(book)}
+                alt={book.title}
                 style={{
-                  position: 'relative',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
                   width: '100%',
-                  paddingTop: '130%', // Book shape
-                  backgroundColor: 'var(--ig-surface)',
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  border: '1px solid var(--ig-border)',
+                  height: '100%',
+                  objectFit: 'cover',
                 }}
-                className="explore-grid-item"
-              >
-                <img
-                  src={book.coverUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500'}
-                  alt={book.title}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  }}
-                />
+              />
 
-                {/* Instagram Hover Overlay */}
-                <div
-                  className="explore-hover-overlay"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    opacity: 0,
-                    transition: 'opacity var(--transition-fast)',
-                    padding: 12,
-                    textAlign: 'center',
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff' }}>
-                    {book.title}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: '#ffffff', fontWeight: 700, fontSize: 14 }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Heart size={18} fill="#ffffff" /> {likesCount}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <MessageCircle size={18} fill="#ffffff" /> {reviewsCount}
-                    </span>
-                  </div>
-                </div>
+              <div
+                className="explore-hover-overlay"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  opacity: 0,
+                  transition: 'opacity var(--transition-fast)',
+                  padding: 12,
+                  textAlign: 'center',
+                  color: '#ffffff',
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{book.title}</div>
+                <div style={{ fontSize: 12 }}>{book.authors?.join(', ')}</div>
+                <div style={{ fontSize: 12, marginTop: 6, opacity: 0.85 }}>Bấm để đọc</div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
+      )}
+
+      {readingBook && (
+        <BookReaderModal book={readingBook} onClose={() => setReadingBook(null)} />
       )}
 
       <style>{`

@@ -87,6 +87,7 @@ export async function listBooks(req: Request, res: Response): Promise<void> {
         authors: true,
         description: true,
         coverUrl: true,
+        driveFileId: true,
         pageCount: true,
         categories: true,
         publishedDate: true,

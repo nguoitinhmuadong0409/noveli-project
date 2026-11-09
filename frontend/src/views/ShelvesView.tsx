@@ -11,12 +11,12 @@ interface ShelvesViewProps {
   onNavigateDiscover: () => void;
 }
 
-export const ShelvesView: React.FC<ShelvesViewProps> = ({ onSelectBook, onNavigateDiscover }) => {
+export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) => {
   const [activeTab, setActiveTab] = useState<ShelfType>('CURRENTLY_READING');
   const [shelves, setShelves] = useState<ShelfItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [progressModalItem, setProgressModalItem] = useState<ShelfItem | null>(null);
-
+  onClick={() => on setProgressModalItem] = useState<ShelfItem | null>(null);
+  const [readingBook, setReadingBook] = useState<Book | null>(null);
   const tabs: { type: ShelfType; label: string; icon: React.FC<{ size?: number }> }[] = [
     { type: 'CURRENTLY_READING', label: 'Đang đọc', icon: BookOpen },
     { type: 'WANT_TO_READ', label: 'Muốn đọc', icon: Clock },

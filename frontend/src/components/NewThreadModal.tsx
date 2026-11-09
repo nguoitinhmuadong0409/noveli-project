@@ -4,11 +4,12 @@ import { Thread } from '../types';
 import { X, ShieldCheck, AlertTriangle, Plus } from 'lucide-react';
 
 interface NewThreadModalProps {
+  bookId?: string; // Hỗ trợ thêm bookId nếu mở modal từ trang Chi tiết sách
   onClose: () => void;
   onCreated: (thread: Thread) => void;
 }
 
-export const NewThreadModal: React.FC<NewThreadModalProps> = ({ onClose, onCreated }) => {
+export const NewThreadModal: React.FC<NewThreadModalProps> = ({ bookId, onClose, onCreated }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tagsInput, setTagsInput] = useState('');
@@ -26,17 +27,32 @@ export const NewThreadModal: React.FC<NewThreadModalProps> = ({ onClose, onCreat
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
-      const res = await api.createThread({
+      // Tạo payload linh hoạt, bỏ default ['ThảoLuận'] để tránh lỗi sai Enum trên Backend
+      const payload: any = {
         title: title.trim(),
         content: content.trim(),
-        tags: tags.length > 0 ? tags : ['ThảoLuận'],
+        tags: tags,
         hasSpoilers,
-      });
+      };
+
+      // Đính kèm bookId nếu đang đứng ở trang sách
+      if (bookId) payload.bookId = bookId;
+
+      const res = await api.createThread(payload);
 
       onCreated(res.thread);
       onClose();
-    } catch (err) {
-      alert((err as Error).message || 'Không thể tạo chủ đề');
+    } catch (err: any) {
+      // TRÍCH XUẤT LỖI CHI TIẾT TỪ BACKEND (Zod Validation)
+      const errorDetails = err.response?.data?.details || err.response?.data?.error || err.message;
+      console.error('Lỗi validation từ backend:', errorDetails);
+      
+      // Hiển thị popup chứa chính xác lý do Backend từ chối
+      if (typeof errorDetails === 'object') {
+        alert(`Dữ liệu không hợp lệ:\n${JSON.stringify(errorDetails, null, 2)}`);
+      } else {
+        alert(errorDetails || 'Không thể tạo chủ đề. Vui lòng thử lại!');
+      }
     } finally {
       setSubmitting(false);
     }

@@ -227,10 +227,7 @@ export const api = {
     return fetchWithAuth(`/books${qs ? `?${qs}` : ''}`);
   },
 
-  searchGoogleBooks: async (query: string): Promise<{ books: Book[]; source: string }> => {
-    return fetchWithAuth(`/books/search?q=${encodeURIComponent(query)}`);
-  },
-    createBook: async (data: {
+  createBook: async (data: {
     title: string;
     authors: string[];
     description?: string | null;

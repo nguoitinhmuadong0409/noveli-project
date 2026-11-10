@@ -9,6 +9,7 @@ import { ENV } from './config/env';
 import { privacyShield } from './middlewares/privacyShield';
 import { authRouter } from './modules/auth/auth.router';
 import { booksRouter } from './modules/books/books.router';
+import { feedRouter } from './modules/feed/feed.router';
 import { shelvesRouter } from './modules/shelves/shelves.router';
 import { forumRouter } from './modules/forum/forum.router';
 import { aiRouter } from './modules/ai/ai.router';
@@ -73,6 +74,7 @@ export function createApp() {
 
   app.use(`${API_PREFIX}/auth`, authRouter);
   app.use(`${API_PREFIX}/books`, booksRouter);
+  app.use('/api/v1/feed', feedRouter);
   app.use(`${API_PREFIX}/shelves`, shelvesRouter);
   app.use(`${API_PREFIX}/forum`, forumRouter);
   app.use(`${API_PREFIX}/ai`, aiRouter);

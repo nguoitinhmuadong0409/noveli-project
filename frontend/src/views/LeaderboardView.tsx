@@ -158,7 +158,7 @@ export const LeaderboardView: React.FC = () => {
                   key={entry.biDanh}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '48px minmax(0, 1fr) auto',
+                    gridTemplateColumns: '52px minmax(0, 1fr) auto',
                     alignItems: 'center',
                     gap: 14,
                     padding: '16px 24px',
@@ -169,8 +169,8 @@ export const LeaderboardView: React.FC = () => {
                   <div
                     aria-label={`Hạng ${entry.rank}`}
                     style={{
-                      width: 42,
-                      height: 42,
+                      width: 46,
+                      height: 46,
                       borderRadius: 14,
                       display: 'grid',
                       placeItems: 'center',
@@ -180,7 +180,14 @@ export const LeaderboardView: React.FC = () => {
                       fontWeight: 800,
                     }}
                   >
-                    {RankIcon ? <RankIcon size={21} fill={entry.rank === 1 ? rankColor : 'none'} /> : entry.rank}
+                    {RankIcon ? (
+                      <div style={{ display: 'grid', placeItems: 'center', lineHeight: 1 }}>
+                        <RankIcon size={18} fill={entry.rank === 1 ? rankColor : 'none'} />
+                        <span style={{ fontSize: 11, marginTop: 2 }}>#{entry.rank}</span>
+                      </div>
+                    ) : (
+                      entry.rank
+                    )}
                   </div>
 
                   <div style={{ minWidth: 0 }}>
@@ -196,6 +203,7 @@ export const LeaderboardView: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 3, color: 'var(--ig-text-muted)', fontSize: 12 }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><BookOpen size={13} /> {entry.booksRead} đầu sách</span>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock3 size={13} /> {formatReadingTime(entry.minutesRead)}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><CalendarDays size={13} /> {entry.sessionsCount} lượt đọc</span>
                         </div>
                       </div>
                     </div>

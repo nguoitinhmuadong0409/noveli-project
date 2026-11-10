@@ -227,23 +227,8 @@ export const api = {
     return fetchWithAuth(`/books${qs ? `?${qs}` : ''}`);
   },
 
-    createBook: async (data: {
-    title: string;
-    authors: string[];
-    description?: string | null;
-    coverUrl?: string | null;
-    pageCount?: number | null;
-    categories: string[];
-    driveLink: string;
-  }): Promise<{ book: Book }> => {
-    return fetchWithAuth('/books', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  deleteBook: async (id: string): Promise<{ success: boolean }> => {
-    return fetchWithAuth(`/books/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  searchGoogleBooks: async (query: string): Promise<{ books: Book[]; source: string }> => {
+    return fetchWithAuth(`/books/search?q=${encodeURIComponent(query)}`);
   },
 
   getBookDetail: async (id: string): Promise<{ book: Book }> => {
@@ -390,6 +375,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+
+  // Thích / bỏ thích một bình luận (toggle). Trả về số upvotes mới và trạng thái đã thích.
+  upvotePost: async (postId: string): Promise<{ upvotes: number; upvoted: boolean }> => {
+    return fetchWithAuth(`/forum/posts/${encodeURIComponent(postId)}/upvote`, {
+      method: 'POST',
+    });
+  },
+
+  // Danh sách id bình luận trong thread mà người dùng hiện tại đã thích.
+  getMyUpvotes: async (threadId: string): Promise<{ postIds: string[] }> => {
+    return fetchWithAuth(`/forum/threads/${encodeURIComponent(threadId)}/my-upvotes`);
   },
 
   // ── AI Recommendations ───────────────────────────────

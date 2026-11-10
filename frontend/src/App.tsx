@@ -30,9 +30,26 @@ function InstagramApp() {
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [openThemeModal, setOpenThemeModal] = useState(false);
 
-  // Danh sách bài đăng: bắt đầu trống, chỉ có bài do người dùng tạo.
-  // (Chưa lưu vào máy chủ nên sẽ mất khi tải lại trang.)
+  // Danh sách bài đăng thật, tải từ máy chủ khi đã đăng nhập.
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (!userId) {
+      setPosts([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getFeedPosts()
+      .then((res) => {
+        if (!cancelled) setPosts(res.posts);
+      })
+      .catch((err) => console.warn('Feed load:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const handleSaveToShelf = async (book: Book, type: ShelfType) => {
     try {

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { FeedPost, Book, ShelfType } from '../types';
+import { FeedPost, FeedComment, Book, ShelfType } from '../types';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import {
   Heart,
   MessageCircle,
   Send,
   Bookmark,
-  MoreHorizontal,
+  Trash2,
   Star,
   BookOpen,
-  Sparkles,
 } from 'lucide-react';
 
 interface InstagramPostCardProps {
@@ -16,6 +17,7 @@ interface InstagramPostCardProps {
   onSelectBook: (book: Book) => void;
   onSaveToShelf: (book: Book, type: ShelfType) => void;
   isSavedOnShelf?: boolean;
+  onDeleted?: (postId: string) => void;
 }
 
 export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
@@ -23,54 +25,83 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
   onSelectBook,
   onSaveToShelf,
   isSavedOnShelf,
+  onDeleted,
 }) => {
+  const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(post.isLiked);
   const [likesCount, setLikesCount] = useState(post.likesCount);
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [saved, setSaved] = useState(isSavedOnShelf ?? post.isSaved);
   const [commentText, setCommentText] = useState('');
-  const [comments, setComments] = useState(post.comments || []);
+  const [comments, setComments] = useState<FeedComment[]>(post.comments || []);
   const [showAllComments, setShowAllComments] = useState(false);
+  const [removed, setRemoved] = useState(false);
 
-  // Double tap to like
+  const canDelete = !!user && (user.id === post.author.id || user.role === 'admin');
+
+  const toggleLike = async () => {
+    const prevLiked = isLiked;
+    const prevCount = likesCount;
+    setIsLiked(!prevLiked);
+    setLikesCount(prevLiked ? prevCount - 1 : prevCount + 1);
+    try {
+      const res = await api.toggleFeedLike(post.id);
+      setIsLiked(res.liked);
+      setLikesCount(res.likesCount);
+    } catch {
+      setIsLiked(prevLiked);
+      setLikesCount(prevCount);
+    }
+  };
+
+  // Chạm đúp để thích (không bỏ thích)
   const handleDoubleTap = () => {
     if (!isLiked) {
-      setIsLiked(true);
-      setLikesCount((prev) => prev + 1);
+      void toggleLike();
     }
     setShowHeartBurst(true);
     setTimeout(() => setShowHeartBurst(false), 800);
   };
 
-  const toggleLike = () => {
-    setIsLiked(!isLiked);
-    setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1));
-  };
-
   const handleToggleSave = () => {
     const nextSaved = !saved;
     setSaved(nextSaved);
-    onSaveToShelf(post.book, nextSaved ? 'WANT_TO_READ' : 'WANT_TO_READ');
+    if (nextSaved) {
+      onSaveToShelf(post.book, 'WANT_TO_READ');
+    }
   };
 
-  const handleAddComment = (e: React.FormEvent) => {
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    const text = commentText.trim();
+    if (!text) return;
+    try {
+      const res = await api.addFeedComment(post.id, text);
+      setComments((prev) => [...prev, res.comment]);
+      setCommentText('');
+    } catch (err) {
+      alert((err as Error).message || 'Không thể gửi bình luận');
+    }
+  };
 
-    const newComment = {
-      id: String(Date.now()),
-      author: 'ban_doc',
-      content: commentText.trim(),
-      createdAt: 'Vừa xong',
-    };
-
-    setComments((prev) => [...prev, newComment]);
-    setCommentText('');
+  const handleDelete = async () => {
+    if (!window.confirm('Xóa bài đăng này?')) return;
+    try {
+      await api.deleteFeedPost(post.id);
+      setRemoved(true);
+      onDeleted?.(post.id);
+    } catch (err) {
+      alert((err as Error).message || 'Không thể xóa bài đăng');
+    }
   };
 
   const addEmoji = (emoji: string) => {
     setCommentText((prev) => prev + emoji);
   };
+
+  if (removed) return null;
+
+  const rating = Number(post.book.avgRating);
 
   return (
     <article
@@ -136,15 +167,22 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
                 }}
               >
                 <BookOpen size={11} /> {post.book.title}
-                {post.currentPage && ` • Trang ${post.currentPage}`}
+                {post.currentPage ? ` • Trang ${post.currentPage}` : ''}
               </div>
             )}
           </div>
         </div>
 
-        <button style={{ color: 'var(--ig-text-secondary)', cursor: 'pointer', padding: 4 }}>
-          <MoreHorizontal size={18} />
-        </button>
+        {canDelete && (
+          <button
+            onClick={() => void handleDelete()}
+            title="Xóa bài đăng"
+            aria-label="Xóa bài đăng"
+            style={{ color: 'var(--ig-text-secondary)', cursor: 'pointer', padding: 4 }}
+          >
+            <Trash2 size={18} />
+          </button>
+        )}
       </div>
 
       {/* ─── 2. Photo / Book Media (with Double Tap Like) ───── */}
@@ -180,30 +218,32 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
           </div>
         )}
 
-        {/* Book Rating Floating Badge */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 12,
-            left: 12,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '5px 10px',
-            borderRadius: 8,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(8px)',
-            color: 'var(--amber-400)',
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          <Star size={13} fill="var(--amber-400)" />
-          {Number(post.book.avgRating) > 0 ? Number(post.book.avgRating).toFixed(1) : '4.8'}
-        </div>
+        {/* Điểm đánh giá thật của sách (ẩn khi chưa có ai đánh giá) */}
+        {rating > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 12,
+              left: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '5px 10px',
+              borderRadius: 8,
+              backgroundColor: 'rgba(0, 0, 0, 0.75)',
+              backdropFilter: 'blur(8px)',
+              color: 'var(--amber-400)',
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            <Star size={13} fill="var(--amber-400)" />
+            {rating.toFixed(1)}
+          </div>
+        )}
 
-        {/* Progress Pill if currently reading */}
-        {post.currentPage && post.pageCount && (
+        {/* Tiến độ đọc */}
+        {post.currentPage && post.pageCount ? (
           <div
             style={{
               position: 'absolute',
@@ -218,9 +258,9 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
               fontWeight: 700,
             }}
           >
-            {Math.round((post.currentPage / post.pageCount) * 100)}% Hoàn thành
+            {Math.min(100, Math.round((post.currentPage / post.pageCount) * 100))}% Hoàn thành
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* ─── 3. Action Buttons ──────────────────────────────── */}
@@ -229,7 +269,7 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             {/* Like */}
             <button
-              onClick={toggleLike}
+              onClick={() => void toggleLike()}
               style={{
                 cursor: 'pointer',
                 color: isLiked ? 'var(--ig-heart-red)' : 'var(--ig-text)',
@@ -301,7 +341,7 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
 
       {/* ─── 4. Quick Comment Bar ────────────────────────────── */}
       <form
-        onSubmit={handleAddComment}
+        onSubmit={(e) => void handleAddComment(e)}
         style={{
           display: 'flex',
           alignItems: 'center',

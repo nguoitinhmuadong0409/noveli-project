@@ -47,13 +47,18 @@ export const ReadingLogModal: React.FC<ReadingLogModalProps> = ({ onClose, onLog
     }
   };
 
+  const pagesThisSession = Math.max(0, endPage - startPage);
+  const canSubmit = !submitting && !!selectedBookId && endPage > startPage;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBookId || submitting) return;
+    if (!canSubmit) return;
 
     setSubmitting(true);
     try {
-      await api.logReadingSession({
+      // /reading-logs/sync đã tự cập nhật trang hiện tại trên kệ,
+      // nên không gọi thêm updateProgress (tránh ghi trùng khi một bước lỗi).
+      const result = await api.logReadingSession({
         bookId: selectedBookId,
         startPage,
         endPage,
@@ -61,12 +66,14 @@ export const ReadingLogModal: React.FC<ReadingLogModalProps> = ({ onClose, onLog
         note: note.trim() || undefined,
       });
 
-      // Update progress on shelf as well
-      await api.updateProgress(selectedBookId, endPage);
+      if (result.summary.errors > 0) {
+        const failed = result.results.find((r) => r.status === 'error');
+        throw new Error(failed?.error || 'Không thể lưu phiên đọc');
+      }
 
-      // Increase streak visually
+      // Lấy streak chuẩn từ backend thay vì tự cộng 1 trên giao diện
       if (user) {
-        updateUserStreak(user.currentStreak + 1);
+        updateUserStreak(result.currentStreak);
       }
 
       confetti({
@@ -193,7 +200,7 @@ export const ReadingLogModal: React.FC<ReadingLogModalProps> = ({ onClose, onLog
               </label>
               <input
                 type="number"
-                min={startPage}
+                min={startPage + 1}
                 className="input-field"
                 value={endPage}
                 onChange={(e) => setEndPage(parseInt(e.target.value) || 0)}
@@ -203,8 +210,13 @@ export const ReadingLogModal: React.FC<ReadingLogModalProps> = ({ onClose, onLog
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--emerald-400)', fontWeight: 600 }}>
             <BookOpen size={15} />
-            Tổng số trang đọc đợt này: {Math.max(0, endPage - startPage)} trang
+            Tổng số trang đọc đợt này: {pagesThisSession} trang
           </div>
+          {endPage <= startPage && (
+            <p role="alert" style={{ fontSize: 12, color: 'var(--rose-500)', marginTop: -8 }}>
+              "Đến trang" phải lớn hơn "Từ trang".
+            </p>
+          )}
 
           {/* Duration */}
           <div>
@@ -214,6 +226,7 @@ export const ReadingLogModal: React.FC<ReadingLogModalProps> = ({ onClose, onLog
             <input
               type="number"
               min={1}
+              max={1440}
               className="input-field"
               value={durationMinutes}
               onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 1)}
@@ -227,6 +240,7 @@ export const ReadingLogModal: React.FC<ReadingLogModalProps> = ({ onClose, onLog
             </label>
             <input
               type="text"
+              maxLength={500}
               placeholder="Ví dụ: Đọc chương 4 rất xúc động..."
               className="input-field"
               value={note}
@@ -237,7 +251,7 @@ export const ReadingLogModal: React.FC<ReadingLogModalProps> = ({ onClose, onLog
           {/* Submit button */}
           <button
             type="submit"
-            disabled={submitting || !selectedBookId || endPage < startPage}
+            disabled={!canSubmit}
             className="btn btn-primary"
             style={{ marginTop: 8, justifyContent: 'center' }}
           >

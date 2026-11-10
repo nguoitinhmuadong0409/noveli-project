@@ -214,6 +214,16 @@ export const ForumView: React.FC = () => {
         <ThreadDetailModal
           thread={selectedThread}
           onClose={closeThread}
+          onPostCreated={() => {
+            // Cập nhật số phản hồi ngay trên danh sách mà không cần chờ tải lại
+            const id = selectedThread.id;
+            setThreads((prev) =>
+              prev.map((t) => (t.id === id ? { ...t, postsCount: (t.postsCount ?? 0) + 1 } : t)),
+            );
+            setSelectedThread((cur) =>
+              cur && cur.id === id ? { ...cur, postsCount: (cur.postsCount ?? 0) + 1 } : cur,
+            );
+          }}
         />
       )}
 

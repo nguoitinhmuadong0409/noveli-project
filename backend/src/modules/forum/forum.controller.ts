@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { randomUUID } from 'crypto';
 import { prisma } from '../../config/prisma';
 import { generateForumIdentity } from '../../utils/forumIdentity';
 import { createThreadSchema, createPostSchema } from '../../utils/validation';
@@ -30,7 +29,7 @@ export async function createThread(req: Request, res: Response): Promise<void> {
 
   // We need a temporary ID to generate the identity for the thread creator.
   // We generate it here, create the thread with it, then the hash is locked in.
-  const tempThreadId = randomUUID();
+  const tempThreadId = crypto.randomUUID();
   const { authorHash, displayAlias } = generateForumIdentity(userId, tempThreadId, null);
 
   try {
@@ -52,8 +51,7 @@ export async function createThread(req: Request, res: Response): Promise<void> {
         tags: true,
         hasSpoilers: true,
         displayAlias: true,
-        // NOTE: `isOp` does not exist on the Thread model (only on Post),
-        // so it must not be selected here. It is added to the response below.
+        isOp: true,
         viewsCount: true,
         postsCount: true,
         createdAt: true,
@@ -61,7 +59,6 @@ export async function createThread(req: Request, res: Response): Promise<void> {
       },
     });
 
-    // The creator of a thread is always the OP.
     res.status(201).json({ thread: { ...thread, isOp: true } });
   } catch (err) {
     console.error('[Forum] createThread error:', err);
@@ -276,4 +273,104 @@ export async function getThreadPosts(req: Request, res: Response): Promise<void>
   const nextCursor = hasMore ? items[items.length - 1]?.id : null;
 
   res.json({ posts: items, nextCursor, hasMore });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/v1/forum/posts/:postId/upvote  — toggle (thích / bỏ thích)
+// ─────────────────────────────────────────────────────────────────────────────
+//  Danh tính người thích = authorHash theo (userId, threadId): ẩn danh,
+//  không lưu userId, và mỗi người chỉ thích được một lần cho mỗi bình luận.
+
+export async function upvotePost(req: Request, res: Response): Promise<void> {
+  const userId = req.userId!;
+  const postId = req.params.postId as string;
+
+  const post = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { id: true, threadId: true },
+  });
+  if (!post) {
+    res.status(404).json({ error: 'Post not found' });
+    return;
+  }
+
+  const thread = await prisma.thread.findUnique({
+    where: { id: post.threadId },
+    select: { authorHash: true },
+  });
+  if (!thread) {
+    res.status(404).json({ error: 'Thread not found' });
+    return;
+  }
+
+  const { authorHash: voterHash } = generateForumIdentity(userId, post.threadId, thread.authorHash);
+
+  try {
+    const existing = await prisma.postUpvote.findUnique({
+      where: { postId_voterHash: { postId, voterHash } },
+      select: { id: true },
+    });
+
+    if (existing) {
+      // Đã thích → bỏ thích
+      const [, updated] = await prisma.$transaction([
+        prisma.postUpvote.delete({ where: { id: existing.id } }),
+        prisma.post.update({
+          where: { id: postId },
+          data: { upvotes: { decrement: 1 } },
+          select: { upvotes: true },
+        }),
+      ]);
+      res.json({ upvotes: Math.max(0, updated.upvotes), upvoted: false });
+      return;
+    }
+
+    // Chưa thích → thích
+    const [, updated] = await prisma.$transaction([
+      prisma.postUpvote.create({
+        data: { postId, threadId: post.threadId, voterHash },
+      }),
+      prisma.post.update({
+        where: { id: postId },
+        data: { upvotes: { increment: 1 } },
+        select: { upvotes: true },
+      }),
+    ]);
+    res.json({ upvotes: updated.upvotes, upvoted: true });
+  } catch (err) {
+    console.error('[Forum] upvotePost error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  GET /api/v1/forum/threads/:threadId/my-upvotes
+//  Trả về danh sách postId mà người dùng hiện tại đã thích trong thread này.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getMyUpvotes(req: Request, res: Response): Promise<void> {
+  const userId = req.userId!;
+  const threadId = req.params.threadId as string;
+
+  const thread = await prisma.thread.findUnique({
+    where: { id: threadId },
+    select: { authorHash: true },
+  });
+  if (!thread) {
+    res.status(404).json({ error: 'Thread not found' });
+    return;
+  }
+
+  const { authorHash: voterHash } = generateForumIdentity(userId, threadId, thread.authorHash);
+
+  try {
+    const rows = await prisma.postUpvote.findMany({
+      where: { threadId, voterHash },
+      select: { postId: true },
+    });
+    res.json({ postIds: rows.map((r) => r.postId) });
+  } catch (err) {
+    console.error('[Forum] getMyUpvotes error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 }

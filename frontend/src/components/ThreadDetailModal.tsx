@@ -19,6 +19,8 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, on
   const [hasSpoilers, setHasSpoilers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [replyingToPostId, setReplyingToPostId] = useState<string | null>(null);
+  const [upvotedIds, setUpvotedIds] = useState<Record<string, boolean>>({});
+  const [upvoting, setUpvoting] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +40,19 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, on
     }
     loadPosts();
 
+    // Lấy danh sách bình luận mình đã thích để tô màu nút (cần đăng nhập, lỗi thì bỏ qua)
+    api
+      .getMyUpvotes(thread.id)
+      .then(({ postIds }) => {
+        if (cancelled) return;
+        const map: Record<string, boolean> = {};
+        postIds.forEach((id) => {
+          map[id] = true;
+        });
+        setUpvotedIds(map);
+      })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };
@@ -48,6 +63,26 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, on
 
   const toggleSpoiler = (id: string) => {
     setRevealedSpoilers((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleUpvote = async (postId: string) => {
+    if (upvoting[postId]) return;
+    setUpvoting((prev) => ({ ...prev, [postId]: true }));
+    try {
+      const { upvotes, upvoted } = await api.upvotePost(postId);
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? { ...p, upvotes }
+            : { ...p, replies: p.replies?.map((r) => (r.id === postId ? { ...r, upvotes } : r)) }
+        )
+      );
+      setUpvotedIds((prev) => ({ ...prev, [postId]: upvoted }));
+    } catch (err) {
+      alert((err as Error).message || 'Không thể thích bình luận');
+    } finally {
+      setUpvoting((prev) => ({ ...prev, [postId]: false }));
+    }
   };
 
   const handleCreatePost = async (e: React.FormEvent) => {
@@ -266,9 +301,23 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, on
                           Spoiler
                         </span>
                       )}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
-                        <ThumbsUp size={12} /> {post.upvotes}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleUpvote(post.id)}
+                        disabled={!!upvoting[post.id]}
+                        title={upvotedIds[post.id] ? 'Bỏ thích' : 'Thích'}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 12,
+                          cursor: 'pointer',
+                          fontWeight: upvotedIds[post.id] ? 700 : 500,
+                          color: upvotedIds[post.id] ? 'var(--amber-400)' : 'var(--text-muted)',
+                        }}
+                      >
+                        <ThumbsUp size={12} fill={upvotedIds[post.id] ? 'currentColor' : 'none'} /> {post.upvotes}
+                      </button>
                     </div>
                   </div>
 
@@ -321,6 +370,24 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, on
                             )}
                           </div>
                           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{reply.content}</p>
+                          <button
+                            type="button"
+                            onClick={() => handleUpvote(reply.id)}
+                            disabled={!!upvoting[reply.id]}
+                            title={upvotedIds[reply.id] ? 'Bỏ thích' : 'Thích'}
+                            style={{
+                              marginTop: 6,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              fontSize: 11,
+                              cursor: 'pointer',
+                              fontWeight: upvotedIds[reply.id] ? 700 : 500,
+                              color: upvotedIds[reply.id] ? 'var(--amber-400)' : 'var(--text-muted)',
+                            }}
+                          >
+                            <ThumbsUp size={11} fill={upvotedIds[reply.id] ? 'currentColor' : 'none'} /> {reply.upvotes ?? 0}
+                          </button>
                         </div>
                       ))}
                     </div>

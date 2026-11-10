@@ -331,3 +331,18 @@ model Goal {
   @@index([userId, year(sort: Desc)])
   @@map("goals")
 }
+// Thêm model này vào cuối file schema.prisma
+// Không dùng @relation tới Post/Thread nên KHÔNG cần sửa model Post hay Thread.
+// Lưu voterHash (băm theo từng thread) chứ không lưu userId, nên vẫn ẩn danh.
+
+model PostUpvote {
+  id        String   @id @default(uuid())
+  postId    String
+  threadId  String
+  voterHash String
+  createdAt DateTime @default(now())
+
+  @@unique([postId, voterHash])
+  @@index([threadId, voterHash])
+}
+

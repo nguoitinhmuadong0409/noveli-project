@@ -66,15 +66,20 @@ export const createPostSchema = z.object({
 
 // ─── Reading Logs Schemas ────────────────────────────────────────────────────
 
-export const readingLogEntrySchema = z.object({
-  clientLogId: z.string().uuid(),
-  bookId: z.string().uuid(),
-  currentPage: z.number().int().min(0),
-  startPage: z.number().int().min(0),
-  durationMinutes: z.number().int().min(0).default(0),
-  note: z.string().max(500).optional(),
-  loggedAt: z.string().datetime(),
-});
+export const readingLogEntrySchema = z
+  .object({
+    clientLogId: z.string().uuid(),
+    bookId: z.string().uuid(),
+    currentPage: z.number().int().min(0).max(100000),
+    startPage: z.number().int().min(0).max(100000),
+    durationMinutes: z.number().int().min(0).max(1440).default(0),
+    note: z.string().max(500).optional(),
+    loggedAt: z.string().datetime(),
+  })
+  .refine((entry) => entry.currentPage >= entry.startPage, {
+    message: 'currentPage must be greater than or equal to startPage',
+    path: ['currentPage'],
+  });
 
 export const syncReadingLogsSchema = z.object({
   logs: z.array(readingLogEntrySchema).min(1).max(100),

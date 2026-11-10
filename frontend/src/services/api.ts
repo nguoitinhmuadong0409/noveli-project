@@ -368,15 +368,14 @@ export const api = {
       body: JSON.stringify({
         logs: [
           {
-            clientLogId: crypto.randomUUID(),
-            bookId: log.bookId,
-            startPage: log.startPage,
-            endPage: log.endPage,
-            pagesRead,
-            durationMinutes: log.durationMinutes,
-            note: log.note,
-            loggedAt: new Date().toISOString(),
-          },
+  clientLogId: crypto.randomUUID(),
+  bookId: log.bookId,
+  startPage: log.startPage,
+  currentPage: log.endPage,
+  durationMinutes: log.durationMinutes,
+  note: log.note,
+  loggedAt: new Date().toISOString(),
+},
         ],
       }),
     });

@@ -345,4 +345,38 @@ model PostUpvote {
   @@unique([postId, voterHash])
   @@index([threadId, voterHash])
 }
+model FeedPost {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  bookId      String   @db.Uuid
+  caption     String   @db.VarChar(2000)
+  image       String   @db.Text
+  currentPage Int?
+  createdAt   DateTime @default(now())
 
+  @@index([createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("feed_posts")
+}
+
+model FeedPostLike {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("feed_post_likes")
+}
+
+model FeedPostComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  content   String   @db.VarChar(1000)
+  createdAt DateTime @default(now())
+
+  @@index([postId, createdAt])
+  @@map("feed_post_comments")
+}

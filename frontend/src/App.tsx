@@ -30,100 +30,9 @@ function InstagramApp() {
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [openThemeModal, setOpenThemeModal] = useState(false);
 
-  // Initial Instagram Feed Posts
-  const [posts, setPosts] = useState<FeedPost[]>([
-    {
-      id: 'post-1',
-      author: {
-        id: 'u1',
-        biDanh: 'sach_va_tra',
-        avatarSeed: 'tea',
-      },
-      book: {
-        id: 'b1',
-        title: 'Rừng Na Uy (Norwegian Wood)',
-        authors: ['Haruki Murakami'],
-        coverUrl: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800',
-        avgRating: 4.8,
-        pageCount: 540,
-        categories: ['Tiểu thuyết', 'Văn học Nhật Bản'],
-      },
-      image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1000&auto=format&fit=crop&q=80',
-      caption: 'Một buổi tối yên ả cùng Murakami... "Cái chết không phải là đối nghịch của sự sống mà là một phần của nó." Từng trang sách như đưa ta về những năm tháng cô đơn đẹp đẽ của tuổi đôi mươi. ☕📖 #Murakami #Bookstagram #ReadingTime #NorwegianWood',
-      likesCount: 142,
-      isLiked: false,
-      isSaved: true,
-      commentsCount: 12,
-      currentPage: 210,
-      pageCount: 540,
-      hasSpoilers: false,
-      createdAt: '2 giờ trước',
-      comments: [
-        { id: 'c1', author: 'ke_ngao_du', content: 'Đoạn nói về Midori làm mình suy nghĩ rất nhiều!', createdAt: '1 giờ trước' },
-        { id: 'c2', author: 'dem_muon_doc_sach', content: 'Murakami viết nỗi buồn mà không hề bi lụy, đọc đi đọc lại vẫn xúc động.', createdAt: '45 phút trước' },
-      ],
-    },
-    {
-      id: 'post-2',
-      author: {
-        id: 'u2',
-        biDanh: 'ke_ngao_du',
-        avatarSeed: 'wanderer',
-      },
-      book: {
-        id: 'b2',
-        title: 'Sapiens: Lược Sử Loài Người',
-        authors: ['Yuval Noah Harari'],
-        coverUrl: 'https://images.unsplash.com/photo-1476275466078-4007374efbbe?w=800',
-        avgRating: 4.9,
-        pageCount: 560,
-        categories: ['Lịch sử', 'Khoa học xã hội'],
-      },
-      image: 'https://images.unsplash.com/photo-1476275466078-4007374efbbe?w=1000&auto=format&fit=crop&q=80',
-      caption: 'Khi bạn nhận ra rằng trật tự xã hội, tiền tệ và các đế chế chỉ tồn tại nhờ "khả năng tưởng tượng tập thể". Đọc Sapiens xong cảm giác như góc nhìn về thế giới được reboot hoàn toàn! 🌍✨ #Sapiens #YuvalNoahHarari #KnowledgeIsPower',
-      likesCount: 238,
-      isLiked: true,
-      isSaved: false,
-      commentsCount: 24,
-      currentPage: 340,
-      pageCount: 560,
-      hasSpoilers: false,
-      createdAt: '5 giờ trước',
-      comments: [
-        { id: 'c3', author: 'sach_va_tra', content: 'Chương về cách mạng nhận thức xuất sắc thực sự.', createdAt: '3 giờ trước' },
-      ],
-    },
-    {
-      id: 'post-3',
-      author: {
-        id: 'u3',
-        biDanh: 'dem_muon_doc_sach',
-        avatarSeed: 'owl',
-      },
-      book: {
-        id: 'b3',
-        title: 'Cây Cam Ngọt Của Tôi',
-        authors: ['José Mauro de Vasconcelos'],
-        coverUrl: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=800',
-        avgRating: 4.9,
-        pageCount: 244,
-        categories: ['Tiểu thuyết', 'Gia đình'],
-      },
-      image: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=1000&auto=format&fit=crop&q=80',
-      caption: 'Khóc nức nở lúc 1 giờ sáng... Tình cảm ấm áp của ông Bồ và sự cô độc của chú bé Zezé 5 tuổi sẽ mãi ở lại trong tim mình. "Ai đã ở trên đời thì đều xứng đáng được sinh ra cả con ạ." 🍊🧡 #CayCamNgotCuaToi #Emotion #MustRead',
-      likesCount: 312,
-      isLiked: false,
-      isSaved: true,
-      commentsCount: 39,
-      currentPage: 244,
-      pageCount: 244,
-      hasSpoilers: false,
-      createdAt: '1 ngày trước',
-      comments: [
-        { id: 'c4', author: 'ke_ngao_du', content: 'Cuốn sách này tốn nước mắt thật sự...', createdAt: '18 giờ trước' },
-      ],
-    },
-  ]);
+  // Danh sách bài đăng: bắt đầu trống, chỉ có bài do người dùng tạo.
+  // (Chưa lưu vào máy chủ nên sẽ mất khi tải lại trang.)
+  const [posts, setPosts] = useState<FeedPost[]>([]);
 
   const handleSaveToShelf = async (book: Book, type: ShelfType) => {
     try {
@@ -200,7 +109,7 @@ function InstagramApp() {
 
         {activeTab === 'profile' && (
           <ProfileView
-            userPosts={posts.filter((p) => p.author.biDanh === user?.biDanh || p.author.biDanh === 'sach_va_tra')}
+            userPosts={posts.filter((p) => p.author.biDanh === user?.biDanh)}
             onSelectBook={(book) => setSelectedBook(book)}
             onNavigateDiscover={() => setActiveTab('explore')}
             onOpenAuthModal={() => setOpenAuthModal(true)}

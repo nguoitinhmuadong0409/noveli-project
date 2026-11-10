@@ -6,11 +6,14 @@ import { X, ShieldCheck, AlertTriangle, Send, ThumbsUp, MessageSquare, BookOpen 
 interface ThreadDetailModalProps {
   thread: Thread;
   onClose: () => void;
+  /** Gọi sau khi gửi bình luận thành công để component cha cập nhật số phản hồi ngay. */
+  onPostCreated?: (post: Post) => void;
 }
 
-export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, onClose }) => {
+export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, onClose, onPostCreated }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [revealedSpoilers, setRevealedSpoilers] = useState<Record<string, boolean>>({});
   const [replyContent, setReplyContent] = useState('');
   const [hasSpoilers, setHasSpoilers] = useState(false);
@@ -18,18 +21,30 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, on
   const [replyingToPostId, setReplyingToPostId] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadPosts() {
+      setLoadingPosts(true);
+      setLoadError(null);
       try {
         const data = await api.getThreadPosts(thread.id);
-        setPosts(data.posts || []);
+        if (!cancelled) setPosts(data.posts || []);
       } catch (err) {
         console.error('Failed to load posts:', err);
+        if (!cancelled) setLoadError((err as Error).message || 'Không thể tải bình luận');
       } finally {
-        setLoadingPosts(false);
+        if (!cancelled) setLoadingPosts(false);
       }
     }
     loadPosts();
+
+    return () => {
+      cancelled = true;
+    };
   }, [thread.id]);
+
+  // Tổng số phản hồi = bình luận gốc + tất cả trả lời lồng bên trong
+  const totalReplies = posts.reduce((sum, p) => sum + 1 + (p.replies?.length ?? 0), 0);
 
   const toggleSpoiler = (id: string) => {
     setRevealedSpoilers((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -59,10 +74,13 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, on
           })
         );
       } else {
-        setPosts((prev) => [...prev, res.post]);
+        setPosts((prev) => [...prev, { ...res.post, replies: res.post.replies ?? [] }]);
       }
 
+      onPostCreated?.(res.post);
+
       setReplyContent('');
+      setHasSpoilers(false);
       setReplyingToPostId(null);
     } catch (err) {
       alert((err as Error).message || 'Không thể gửi phản hồi');
@@ -209,12 +227,14 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({ thread, on
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <MessageSquare size={18} color="var(--amber-400)" />
             <h3 style={{ fontSize: 16, fontWeight: 700 }}>
-              Thảo luận cộng đồng ({posts.length})
+              Thảo luận cộng đồng ({totalReplies})
             </h3>
           </div>
 
           {loadingPosts ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Đang tải bình luận...</p>
+          ) : loadError ? (
+            <p style={{ color: 'var(--rose-400)', fontSize: 13 }}>Không tải được bình luận: {loadError}</p>
           ) : posts.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Chưa có phản hồi nào. Hãy là người mở lời tranh luận!</p>
           ) : (

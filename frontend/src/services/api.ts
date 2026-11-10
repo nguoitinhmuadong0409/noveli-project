@@ -12,10 +12,33 @@ import {
   AIRecommendationResponse,
   ChatConversation,
   ChatMessage,
+  FeedPost,
+  FeedComment,
 } from '../types';
 
 const API_ORIGIN = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') ?? '';
 const BASE_URL = `${API_ORIGIN}/api/v1`;
+
+function timeAgo(iso: string): string {
+  const time = new Date(iso).getTime();
+  if (Number.isNaN(time)) return iso;
+  const minutes = Math.floor((Date.now() - time) / 60000);
+  if (minutes < 1) return 'Vừa xong';
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} ngày trước`;
+  return new Date(time).toLocaleDateString('vi-VN');
+}
+
+function formatFeedPost(post: FeedPost): FeedPost {
+  return {
+    ...post,
+    createdAt: timeAgo(post.createdAt),
+    comments: (post.comments || []).map((c) => ({ ...c, createdAt: timeAgo(c.createdAt) })),
+  };
+}
 
 export function getToken(): string | null {
   return localStorage.getItem('novoli_token');
@@ -402,6 +425,41 @@ export const api = {
   // Danh sách id bình luận trong thread mà người dùng hiện tại đã thích.
   getMyUpvotes: async (threadId: string): Promise<{ postIds: string[] }> => {
     return fetchWithAuth(`/forum/threads/${encodeURIComponent(threadId)}/my-upvotes`);
+  },
+
+  // ── Feed (bài đăng trang chủ) ────────────────────────
+  getFeedPosts: async (): Promise<{ posts: FeedPost[] }> => {
+    const res = await fetchWithAuth<{ posts: FeedPost[] }>('/feed/posts');
+    return { posts: (res.posts || []).map(formatFeedPost) };
+  },
+
+  createFeedPost: async (data: {
+    bookId: string;
+    caption: string;
+    image: string;
+    currentPage?: number | null;
+  }): Promise<{ post: FeedPost }> => {
+    const res = await fetchWithAuth<{ post: FeedPost }>('/feed/posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return { post: formatFeedPost(res.post) };
+  },
+
+  deleteFeedPost: async (postId: string): Promise<{ success: boolean }> => {
+    return fetchWithAuth(`/feed/posts/${encodeURIComponent(postId)}`, { method: 'DELETE' });
+  },
+
+  toggleFeedLike: async (postId: string): Promise<{ liked: boolean; likesCount: number }> => {
+    return fetchWithAuth(`/feed/posts/${encodeURIComponent(postId)}/like`, { method: 'POST' });
+  },
+
+  addFeedComment: async (postId: string, content: string): Promise<{ comment: FeedComment }> => {
+    const res = await fetchWithAuth<{ comment: FeedComment }>(
+      `/feed/posts/${encodeURIComponent(postId)}/comments`,
+      { method: 'POST', body: JSON.stringify({ content }) },
+    );
+    return { comment: { ...res.comment, createdAt: timeAgo(res.comment.createdAt) } };
   },
 
   // ── AI Recommendations ───────────────────────────────

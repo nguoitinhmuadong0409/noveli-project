@@ -13,9 +13,11 @@ import {
   LayoutDashboard,
   Trophy,
   MessagesSquare,
+  BarChart2, // ĐÃ THÊM: Icon cho Thống kê
 } from 'lucide-react';
 
-export type IgTab = 'home' | 'search' | 'explore' | 'reels' | 'forum' | 'shelves' | 'leaderboard' | 'chat' | 'profile' | 'admin';
+// ĐÃ THÊM: 'analytics' vào type IgTab
+export type IgTab = 'home' | 'search' | 'explore' | 'reels' | 'forum' | 'shelves' | 'analytics' | 'leaderboard' | 'chat' | 'profile' | 'admin';
 
 interface InstagramSidebarProps {
   activeTab: IgTab;
@@ -41,6 +43,7 @@ export const InstagramSidebar: React.FC<InstagramSidebarProps> = ({
     { id: 'explore', label: 'Khám phá', icon: Compass },
     { id: 'reels', label: 'Trích dẫn', icon: Film },
     { id: 'shelves', label: 'Kệ sách', icon: Bookmark },
+    { id: 'analytics', label: 'Thống kê', icon: BarChart2 }, // ĐÃ THÊM: Nút Thống kê
     { id: 'leaderboard', label: 'Bảng xếp hạng', icon: Trophy },
     { id: 'chat', label: 'Trò chuyện', icon: MessagesSquare },
     { id: 'forum', label: 'Diễn đàn ẩn danh', icon: MessageSquare },
@@ -114,7 +117,7 @@ export const InstagramSidebar: React.FC<InstagramSidebarProps> = ({
             return (
               <button
                 key={item.id}
-                onClick={() => onTabChange(item.id)}
+                onClick={() => onTabChange(item.id as IgTab)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -251,7 +254,7 @@ export const InstagramSidebar: React.FC<InstagramSidebarProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Flame size={18} fill="var(--amber-400)" color="var(--amber-500)" />
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber-400)' }}>
-                {user.currentStreak} ngày streak
+                {user.currentStreak || 0} ngày streak
               </span>
             </div>
             <span style={{ fontSize: 11, color: 'var(--amber-400)' }}>+Ghi</span>

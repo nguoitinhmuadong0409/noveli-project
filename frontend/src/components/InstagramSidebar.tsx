@@ -43,9 +43,9 @@ export const InstagramSidebar: React.FC<InstagramSidebarProps> = ({
     { id: 'explore', label: 'Khám phá', icon: Compass },
     { id: 'reels', label: 'Trích dẫn', icon: Film },
     { id: 'shelves', label: 'Kệ sách', icon: Bookmark },
-    { id: 'leaderboard', label: 'Bảng xếp hạng', icon: Trophy },
     { id: 'chat', label: 'Trò chuyện', icon: MessagesSquare },
-    { id: 'forum', label: 'Diễn đàn ẩn danh', icon: MessageSquare },
+    { id: 'forum', label: 'Diễn đàn', icon: MessageSquare },
+    { id: 'leaderboard', label: 'Bảng xếp hạng', icon: Trophy },
     ...(user?.role === 'admin' ? [{ id: 'admin' as const, label: 'Quản trị', icon: LayoutDashboard }] : []),
   ] as const;
 

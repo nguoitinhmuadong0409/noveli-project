@@ -75,7 +75,6 @@ function InstagramApp() {
     { id: 'explore', label: 'Khám phá', icon: Compass },
     { id: 'reels', label: 'Trích dẫn', icon: Film },
     { id: 'shelves', label: 'Kệ sách', icon: Bookmark },
-    { id: 'analytics', label: 'Thống kê', icon: BarChart2 }, // <-- Mới thêm
     { id: 'leaderboard', label: 'Bảng xếp hạng', icon: Trophy },
     { id: 'chat', label: 'Trò chuyện', icon: MessagesSquare },
     { id: 'forum', label: 'Diễn đàn', icon: MessageSquare },

@@ -6,6 +6,7 @@ import { DashboardStats, ShelfItem } from '../types';
 
 interface AnalyticsViewProps {
   onOpenLogModal: () => void;
+  books?: unknown;
 }
 
 const DEFAULT_TARGET_BOOKS = 24;

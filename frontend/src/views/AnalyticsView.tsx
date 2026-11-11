@@ -1,241 +1,357 @@
-import React, { useMemo } from 'react';
-import { Flame, Target, BookOpen, Clock, Calendar, Sparkles, Plus } from 'lucide-react';
-import { ReadingChartPoint } from '../types'; // Đảm bảo import type phù hợp với project của Thầy
+import React, { useCallback, useEffect, useState } from 'react';
+import { Flame, BookOpen, Clock, Target, Plus, Sparkles } from 'lucide-react';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { DashboardStats, ShelfItem } from '../types';
 
-// Cập nhật Props để nhận trực tiếp dữ liệu từ frontend
 interface AnalyticsViewProps {
   onOpenLogModal: () => void;
-  books?: any[]; // Mảng dữ liệu Kệ sách truyền từ component cha
-  chartData?: ReadingChartPoint[]; // Mảng dữ liệu biểu đồ 7 ngày (nếu có)
-  userStats?: { // Các chỉ số phụ truyền từ ngoài vào (chuỗi streak, thống kê 30 ngày)
-    currentStreak?: number;
-    longestStreak?: number;
-    last30Days?: {
-      pagesRead: number;
-      minutesRead: number;
-      sessionsCount: number;
-    };
-  };
 }
 
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ 
-  onOpenLogModal, 
-  books = [], 
-  chartData = [],
-  userStats
-}) => {
+const DEFAULT_TARGET_BOOKS = 24;
+const DEFAULT_TARGET_PAGES = 6000;
 
-  // 1. Tính toán trực tiếp số liệu "Mục Tiêu Năm 2026" từ Kệ sách
-  const goalStats = useMemo(() => {
-    const targetBooks = 24; 
-    const targetPages = 6000;
+function percent(value: number, target: number): number {
+  if (target <= 0) return 0;
+  return Math.min(100, Math.round((value / target) * 100));
+}
 
-    // Đếm số sách đã hoàn thành (tiến độ = 100%)
-    const completedBooks = books.filter((book) => book.progress === 100).length; 
-    
-    // Cộng tổng số trang đã đọc của tất cả các cuốn sách trên kệ
-    const completedPages = books.reduce((total, book) => total + (Number(book.pagesRead) || 0), 0);
+function formatReadingTime(minutes: number): string {
+  if (minutes < 60) return `${minutes} phút`;
+  const hours = Math.round((minutes / 60) * 10) / 10;
+  return `${hours} giờ`;
+}
 
-    return { targetBooks, targetPages, completedBooks, completedPages };
-  }, [books]);
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) => {
+  const { user } = useAuth();
+  const [dashboard, setDashboard] = useState<DashboardStats | null>(null);
+  const [shelves, setShelves] = useState<ShelfItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 2. Tính phần trăm tiến độ
-  const bookProgressPercent = Math.min(100, Math.round((goalStats.completedBooks / goalStats.targetBooks) * 100)) || 0;
-  const pageProgressPercent = Math.min(100, Math.round((goalStats.completedPages / goalStats.targetPages) * 100)) || 0;
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [dash, shelfRes] = await Promise.all([api.getDashboard(), api.getUserShelves()]);
+      setDashboard(dash);
+      setShelves(shelfRes.shelves || []);
+    } catch (err) {
+      setError((err as Error).message || 'Không thể tải thống kê');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // 3. Tính max pages cho biểu đồ cột
-  const maxPages = chartData.length > 0 ? Math.max(...chartData.map((c) => c.pages), 40) : 40;
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!user) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ig-text-muted)' }}>
+        Hãy đăng nhập để xem thống kê đọc sách của bạn.
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ig-text-muted)' }}>
+        Đang tải thống kê...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 0', color: '#b91c1c' }}>
+        {error}
+        <div style={{ marginTop: 12 }}>
+          <button onClick={() => void load()} className="btn btn-secondary btn-sm">
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Số liệu từ Kệ sách ─────────────────────────────────
+  const finishedShelves = shelves.filter((s) => s.type === 'READ');
+  const readingShelves = shelves.filter((s) => s.type === 'CURRENTLY_READING');
+
+  const booksDone = finishedShelves.length;
+  const pagesDone =
+    finishedShelves.reduce((sum, s) => sum + (s.book.pageCount ?? s.currentPage), 0) +
+    readingShelves.reduce((sum, s) => sum + s.currentPage, 0);
+
+  const targetBooks = dashboard?.goal?.targetBooks ?? DEFAULT_TARGET_BOOKS;
+  const targetPages = dashboard?.goal?.targetPages ?? DEFAULT_TARGET_PAGES;
+  const booksPct = percent(booksDone, targetBooks);
+  const pagesPct = percent(pagesDone, targetPages);
+
+  // ── Số liệu từ tài khoản và các lần ghi nhận trang ─────
+  const streak = dashboard?.user?.currentStreak ?? user.currentStreak ?? 0;
+  const longest = Math.max(dashboard?.user?.longestStreak ?? 0, user.longestStreak ?? 0, streak);
+  const last30 = dashboard?.last30Days ?? { pagesRead: 0, minutesRead: 0, sessionsCount: 0 };
+  const year = new Date().getFullYear();
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 20px 80px' }}>
-      {/* Title & Quick Log CTA */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      {/* Header */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 16,
+          flexWrap: 'wrap',
+          marginBottom: 24,
+        }}
+      >
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800 }}>Thống Kê & Chuỗi Streak</h1>
-          <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-            Theo dõi kỷ luật đọc sách mỗi ngày và thử thách năm 2026
+          <h2 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ig-text)', margin: 0 }}>
+            Thống Kê & Chuỗi Streak
+          </h2>
+          <p style={{ fontSize: 14, color: 'var(--ig-text-secondary)', margin: '6px 0 0' }}>
+            Theo dõi kỷ luật đọc sách mỗi ngày và thử thách năm {year}
           </p>
         </div>
-        <button onClick={onOpenLogModal} className="btn btn-primary">
+        <button onClick={onOpenLogModal} className="btn btn-primary btn-sm">
           <Plus size={16} /> Ghi nhận trang sách
         </button>
       </div>
 
-      {/* Grid: Streak Card & 30-Day Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginBottom: 24 }}>
-        {/* Streak Highlight Card */}
+      {/* Streak + 30 ngày */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: 24,
+          marginBottom: 32,
+        }}
+      >
         <div
-          className="glass-panel"
           style={{
             padding: 24,
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), var(--bg-surface) 80%)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: 14,
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), var(--ig-surface) 80%)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber-400)', textTransform: 'uppercase' }}>
-              Chuỗi đọc liên tiếp
-            </span>
-            <div className="animate-streak-fire">
-              <Flame size={28} fill="var(--amber-400)" color="var(--amber-500)" />
-            </div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: '0.03em',
+              color: 'var(--emerald-400)',
+            }}
+          >
+            <span>CHUỖI ĐỌC LIÊN TIẾP</span>
+            <Flame size={26} fill="var(--emerald-400)" />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontSize: 44, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-              {userStats?.currentStreak || 7}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '20px 0 12px' }}>
+            <span style={{ fontSize: 56, fontWeight: 800, color: 'var(--ig-text)', lineHeight: 1 }}>
+              {streak}
             </span>
-            <span style={{ fontSize: 18, color: 'var(--amber-400)', fontWeight: 700 }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--emerald-400)' }}>
               ngày liên tiếp
             </span>
           </div>
 
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8 }}>
-            Kỷ lục dài nhất: <strong>{userStats?.longestStreak || 21} ngày</strong>. Đọc ít nhất 10 trang hôm nay để duy trì chuỗi!
+          <p style={{ fontSize: 14, color: 'var(--ig-text-secondary)', margin: 0, lineHeight: 1.5 }}>
+            Kỷ lục dài nhất: <strong style={{ color: 'var(--ig-text)' }}>{longest} ngày</strong>.{' '}
+            {streak > 0
+              ? 'Ghi nhận trang sách hôm nay để duy trì chuỗi!'
+              : 'Ghi nhận trang sách hôm nay để bắt đầu chuỗi đọc.'}
           </p>
         </div>
 
-        {/* 30-Day Totals */}
-        <div className="card" style={{ padding: 24 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 16, display: 'block' }}>
-            Tổng kết 30 ngày qua
-          </span>
+        <div style={{ padding: '8px 4px' }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: '0.03em',
+              color: 'var(--ig-text-secondary)',
+              marginBottom: 16,
+            }}
+          >
+            TỔNG KẾT 30 NGÀY QUA
+          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--emerald-400)', marginBottom: 4 }}>
-                <BookOpen size={16} />
-                <span style={{ fontSize: 12, fontWeight: 600 }}>Trang đã đọc</span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: 'var(--emerald-400)',
+                  marginBottom: 6,
+                }}
+              >
+                <BookOpen size={16} /> Trang đã đọc
               </div>
-              <div style={{ fontSize: 24, fontWeight: 800 }}>
-                {userStats?.last30Days?.pagesRead || 210} trang
+              <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--ig-text)' }}>
+                {last30.pagesRead} trang
               </div>
             </div>
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--indigo-400)', marginBottom: 4 }}>
-                <Clock size={16} />
-                <span style={{ fontSize: 12, fontWeight: 600 }}>Thời gian đọc</span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#818cf8',
+                  marginBottom: 6,
+                }}
+              >
+                <Clock size={16} /> Thời gian đọc
               </div>
-              <div style={{ fontSize: 24, fontWeight: 800 }}>
-                {userStats?.last30Days?.minutesRead ? Math.round(userStats.last30Days.minutesRead / 60) : 4} giờ
+              <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--ig-text)' }}>
+                {formatReadingTime(last30.minutesRead)}
               </div>
             </div>
           </div>
 
-          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', fontSize: 12, color: 'var(--text-muted)' }}>
-            Đã hoàn thành <strong>{userStats?.last30Days?.sessionsCount || 7}</strong> phiên đọc sách tập trung.
+          <div
+            style={{
+              marginTop: 20,
+              paddingTop: 14,
+              borderTop: '1px solid var(--ig-border)',
+              fontSize: 13,
+              color: 'var(--ig-text-secondary)',
+            }}
+          >
+            Đã hoàn thành <strong style={{ color: 'var(--ig-text)' }}>{last30.sessionsCount}</strong>{' '}
+            phiên đọc sách tập trung.
           </div>
         </div>
       </div>
 
-      {/* 2026 Yearly Reading Challenge Card */}
-      <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ padding: 8, borderRadius: 10, background: 'rgba(99, 102, 241, 0.15)', color: 'var(--indigo-400)' }}>
-              <Target size={20} />
+      {/* Mục tiêu năm */}
+      <div style={{ padding: '0 8px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                backgroundColor: 'rgba(129, 140, 248, 0.18)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#818cf8',
+              }}
+            >
+              <Target size={24} />
             </div>
             <div>
-              <h3 style={{ fontSize: 18, fontWeight: 800 }}>Mục Tiêu Đọc Sách Năm 2026</h3>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Thử thách hoàn thành {goalStats.targetBooks} cuốn sách</p>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ig-text)' }}>
+                Mục Tiêu Đọc Sách Năm {year}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--ig-text-secondary)' }}>
+                Thử thách hoàn thành {targetBooks} cuốn sách
+              </div>
             </div>
           </div>
-          <span className="badge badge-emerald">
-            <Sparkles size={12} /> Tiến độ: {bookProgressPercent}%
+
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '5px 12px',
+              borderRadius: 9999,
+              fontSize: 12,
+              fontWeight: 700,
+              color: 'var(--emerald-400)',
+              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+            }}
+          >
+            <Sparkles size={13} /> Tiến độ: {booksPct}%
           </span>
         </div>
 
-        {/* Book progress bar */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+        {/* Số lượng sách */}
+        <div style={{ marginBottom: 20 }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: 14,
+              fontWeight: 700,
+              color: 'var(--ig-text)',
+              marginBottom: 8,
+            }}
+          >
             <span>Số lượng sách:</span>
-            <span>{goalStats.completedBooks} / {goalStats.targetBooks} cuốn</span>
+            <span>
+              {booksDone} / {targetBooks} cuốn
+            </span>
           </div>
-          <div style={{ height: 10, borderRadius: 9999, background: 'var(--bg-surface-elevated)', overflow: 'hidden' }}>
+          <div style={{ height: 12, borderRadius: 9999, backgroundColor: 'var(--ig-elevated)', overflow: 'hidden' }}>
             <div
               style={{
                 height: '100%',
-                width: `${bookProgressPercent}%`,
-                background: 'linear-gradient(90deg, var(--indigo-500), var(--emerald-400))',
+                width: `${booksPct}%`,
                 borderRadius: 9999,
+                background: 'linear-gradient(90deg, #6366f1, #34d399)',
+                transition: 'width 400ms ease',
               }}
             />
           </div>
         </div>
 
-        {/* Page progress bar */}
+        {/* Khối lượng trang */}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: 14,
+              fontWeight: 700,
+              color: 'var(--ig-text)',
+              marginBottom: 8,
+            }}
+          >
             <span>Khối lượng trang:</span>
-            <span>{goalStats.completedPages} / {goalStats.targetPages} trang ({pageProgressPercent}%)</span>
+            <span>
+              {pagesDone} / {targetPages} trang ({pagesPct}%)
+            </span>
           </div>
-          <div style={{ height: 10, borderRadius: 9999, background: 'var(--bg-surface-elevated)', overflow: 'hidden' }}>
+          <div style={{ height: 12, borderRadius: 9999, backgroundColor: 'var(--ig-elevated)', overflow: 'hidden' }}>
             <div
               style={{
                 height: '100%',
-                width: `${pageProgressPercent}%`,
-                background: 'linear-gradient(90deg, var(--amber-500), #e11d48)',
+                width: `${pagesPct}%`,
                 borderRadius: 9999,
+                background: 'linear-gradient(90deg, #166534, #e11d48)',
+                transition: 'width 400ms ease',
               }}
             />
           </div>
         </div>
-      </div>
-
-      {/* 7-Day Reading Timeline Bar Chart */}
-      <div className="card" style={{ padding: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-          <Calendar size={18} color="var(--amber-400)" />
-          <h3 style={{ fontSize: 16, fontWeight: 700 }}>Biểu Đồ Đọc 7 Ngày Gần Nhất</h3>
-        </div>
-
-        {chartData.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Chưa có dữ liệu phiên đọc trong 7 ngày qua.</p>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: 180, paddingTop: 20, gap: 12 }}>
-            {chartData.map((point) => {
-              const heightPercent = Math.max(12, Math.round((point.pages / maxPages) * 100));
-              const dateLabel = new Date(point.date).toLocaleDateString('vi-VN', { weekday: 'short', day: 'numeric' });
-
-              return (
-                <div
-                  key={point.date}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 8,
-                    height: '100%',
-                    justifyContent: 'flex-end',
-                  }}
-                >
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--amber-400)' }}>
-                    {point.pages > 0 ? `${point.pages} tr` : '0'}
-                  </span>
-                  <div
-                    style={{
-                      width: '100%',
-                      maxWidth: 42,
-                      height: `${heightPercent}%`,
-                      background: point.pages > 0
-                        ? 'linear-gradient(180deg, var(--amber-400), var(--amber-600))'
-                        : 'var(--bg-surface-elevated)',
-                      borderRadius: '8px 8px 4px 4px',
-                      transition: 'height 400ms ease-out',
-                      boxShadow: point.pages > 0 ? '0 4px 12px var(--amber-glow)' : 'none',
-                    }}
-                    title={`${point.date}: ${point.pages} trang (${point.minutes} phút)`}
-                  />
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                    {dateLabel}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );

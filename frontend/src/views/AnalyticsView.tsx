@@ -1,50 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import { DashboardStats, ReadingChartPoint } from '../types';
-import { api } from '../services/api';
+import React, { useMemo } from 'react';
 import { Flame, Target, BookOpen, Clock, Calendar, Sparkles, Plus } from 'lucide-react';
+import { ReadingChartPoint } from '../types'; // Đảm bảo import type phù hợp với project của Thầy
 
+// Cập nhật Props để nhận trực tiếp dữ liệu từ frontend
 interface AnalyticsViewProps {
   onOpenLogModal: () => void;
+  books?: any[]; // Mảng dữ liệu Kệ sách truyền từ component cha
+  chartData?: ReadingChartPoint[]; // Mảng dữ liệu biểu đồ 7 ngày (nếu có)
+  userStats?: { // Các chỉ số phụ truyền từ ngoài vào (chuỗi streak, thống kê 30 ngày)
+    currentStreak?: number;
+    longestStreak?: number;
+    last30Days?: {
+      pagesRead: number;
+      minutesRead: number;
+      sessionsCount: number;
+    };
+  };
 }
 
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [chart, setChart] = useState<ReadingChartPoint[]>([]);
-  const [loading, setLoading] = useState(true);
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ 
+  onOpenLogModal, 
+  books = [], 
+  chartData = [],
+  userStats
+}) => {
 
-  useEffect(() => {
-    async function loadAnalytics() {
-      try {
-        const [dashRes, chartRes] = await Promise.all([
-          api.getDashboard().catch(() => null),
-          api.getReadingChart(7).catch(() => ({ chartData: [] })),
-        ]);
-        if (dashRes) setStats(dashRes);
-        if (chartRes?.chartData) setChart(chartRes.chartData);
-      } catch (err) {
-        console.error('Failed to load analytics:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadAnalytics();
-  }, []);
+  // 1. Tính toán trực tiếp số liệu "Mục Tiêu Năm 2026" từ Kệ sách
+  const goalStats = useMemo(() => {
+    const targetBooks = 24; 
+    const targetPages = 6000;
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '100px 0', color: 'var(--text-muted)' }}>
-        Đang tổng hợp dữ liệu thống kê đọc sách...
-      </div>
-    );
-  }
+    // Đếm số sách đã hoàn thành (tiến độ = 100%)
+    const completedBooks = books.filter((book) => book.progress === 100).length; 
+    
+    // Cộng tổng số trang đã đọc của tất cả các cuốn sách trên kệ
+    const completedPages = books.reduce((total, book) => total + (Number(book.pagesRead) || 0), 0);
 
-  const maxPages = Math.max(...chart.map((c) => c.pages), 40);
+    return { targetBooks, targetPages, completedBooks, completedPages };
+  }, [books]);
 
-  const goal = stats?.goal;
-  const bookProgressPercent = goal ? Math.min(100, Math.round((goal.completedBooks / goal.targetBooks) * 100)) : 33;
-  const pageProgressPercent = goal?.targetPages
-    ? Math.min(100, Math.round((goal.completedPages / goal.targetPages) * 100))
-    : 35;
+  // 2. Tính phần trăm tiến độ
+  const bookProgressPercent = Math.min(100, Math.round((goalStats.completedBooks / goalStats.targetBooks) * 100)) || 0;
+  const pageProgressPercent = Math.min(100, Math.round((goalStats.completedPages / goalStats.targetPages) * 100)) || 0;
+
+  // 3. Tính max pages cho biểu đồ cột
+  const maxPages = chartData.length > 0 ? Math.max(...chartData.map((c) => c.pages), 40) : 40;
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 20px 80px' }}>
@@ -83,7 +83,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
 
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <span style={{ fontSize: 44, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-              {stats?.user.currentStreak || 7}
+              {userStats?.currentStreak || 7}
             </span>
             <span style={{ fontSize: 18, color: 'var(--amber-400)', fontWeight: 700 }}>
               ngày liên tiếp
@@ -91,7 +91,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
           </div>
 
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8 }}>
-            Kỷ lục dài nhất: <strong>{stats?.user.longestStreak || 21} ngày</strong>. Đọc ít nhất 10 trang hôm nay để duy trì chuỗi!
+            Kỷ lục dài nhất: <strong>{userStats?.longestStreak || 21} ngày</strong>. Đọc ít nhất 10 trang hôm nay để duy trì chuỗi!
           </p>
         </div>
 
@@ -108,7 +108,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
                 <span style={{ fontSize: 12, fontWeight: 600 }}>Trang đã đọc</span>
               </div>
               <div style={{ fontSize: 24, fontWeight: 800 }}>
-                {stats?.last30Days.pagesRead || 210} trang
+                {userStats?.last30Days?.pagesRead || 210} trang
               </div>
             </div>
 
@@ -118,13 +118,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
                 <span style={{ fontSize: 12, fontWeight: 600 }}>Thời gian đọc</span>
               </div>
               <div style={{ fontSize: 24, fontWeight: 800 }}>
-                {Math.round((stats?.last30Days.minutesRead || 245) / 60)} giờ
+                {userStats?.last30Days?.minutesRead ? Math.round(userStats.last30Days.minutesRead / 60) : 4} giờ
               </div>
             </div>
           </div>
 
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', fontSize: 12, color: 'var(--text-muted)' }}>
-            Đã hoàn thành <strong>{stats?.last30Days.sessionsCount || 7}</strong> phiên đọc sách tập trung.
+            Đã hoàn thành <strong>{userStats?.last30Days?.sessionsCount || 7}</strong> phiên đọc sách tập trung.
           </div>
         </div>
       </div>
@@ -138,7 +138,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
             </div>
             <div>
               <h3 style={{ fontSize: 18, fontWeight: 800 }}>Mục Tiêu Đọc Sách Năm 2026</h3>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Thử thách hoàn thành 24 cuốn sách</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Thử thách hoàn thành {goalStats.targetBooks} cuốn sách</p>
             </div>
           </div>
           <span className="badge badge-emerald">
@@ -150,7 +150,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
             <span>Số lượng sách:</span>
-            <span>{goal?.completedBooks || 8} / {goal?.targetBooks || 24} cuốn</span>
+            <span>{goalStats.completedBooks} / {goalStats.targetBooks} cuốn</span>
           </div>
           <div style={{ height: 10, borderRadius: 9999, background: 'var(--bg-surface-elevated)', overflow: 'hidden' }}>
             <div
@@ -168,7 +168,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
             <span>Khối lượng trang:</span>
-            <span>{goal?.completedPages || 2150} / {goal?.targetPages || 6000} trang ({pageProgressPercent}%)</span>
+            <span>{goalStats.completedPages} / {goalStats.targetPages} trang ({pageProgressPercent}%)</span>
           </div>
           <div style={{ height: 10, borderRadius: 9999, background: 'var(--bg-surface-elevated)', overflow: 'hidden' }}>
             <div
@@ -190,11 +190,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
           <h3 style={{ fontSize: 16, fontWeight: 700 }}>Biểu Đồ Đọc 7 Ngày Gần Nhất</h3>
         </div>
 
-        {chart.length === 0 ? (
+        {chartData.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Chưa có dữ liệu phiên đọc trong 7 ngày qua.</p>
         ) : (
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: 180, paddingTop: 20, gap: 12 }}>
-            {chart.map((point) => {
+            {chartData.map((point) => {
               const heightPercent = Math.max(12, Math.round((point.pages / maxPages) * 100));
               const dateLabel = new Date(point.date).toLocaleDateString('vi-VN', { weekday: 'short', day: 'numeric' });
 

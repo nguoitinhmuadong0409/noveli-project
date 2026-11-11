@@ -43,7 +43,6 @@ export const InstagramSidebar: React.FC<InstagramSidebarProps> = ({
     { id: 'explore', label: 'Khám phá', icon: Compass },
     { id: 'reels', label: 'Trích dẫn', icon: Film },
     { id: 'shelves', label: 'Kệ sách', icon: Bookmark },
-    { id: 'analytics', label: 'Thống kê', icon: BarChart2 }, // ĐÃ THÊM: Nút Thống kê
     { id: 'leaderboard', label: 'Bảng xếp hạng', icon: Trophy },
     { id: 'chat', label: 'Trò chuyện', icon: MessagesSquare },
     { id: 'forum', label: 'Diễn đàn ẩn danh', icon: MessageSquare },

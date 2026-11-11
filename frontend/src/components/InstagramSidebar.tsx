@@ -141,25 +141,7 @@ export const InstagramSidebar: React.FC<InstagramSidebarProps> = ({
           })}
 
           {/* Create Post Button */}
-          <button
-            onClick={onOpenCreateModal}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              padding: '12px 14px',
-              borderRadius: 10,
-              fontSize: 15,
-              fontWeight: 500,
-              color: 'var(--ig-text)',
-              cursor: 'pointer',
-              marginTop: 4,
-            }}
-            className="ig-nav-btn"
-          >
-            <PlusSquare size={24} strokeWidth={1.8} />
-            <span>Tạo bài viết</span>
-          </button>
+         
 
           {/* Profile Button */}
           <button

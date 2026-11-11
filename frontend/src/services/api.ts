@@ -361,21 +361,26 @@ export const api = {
   },
 
   // ── Reading Logs ─────────────────────────────────────
-  logReadingSession: async (log: { bookId: string; startPage: number; endPage: number; durationMinutes: number; note?: string }): Promise<unknown> => {
+  logReadingSession: async (log: { bookId: string; startPage: number; endPage: number; durationMinutes: number; note?: string }): Promise<{
+    summary: { errors: number };
+    results: { status: string; error?: string }[];
+    currentStreak: number;
+  }> => {
     const pagesRead = Math.max(0, log.endPage - log.startPage);
     return fetchWithAuth('/reading-logs/sync', {
       method: 'POST',
       body: JSON.stringify({
         logs: [
           {
-  clientLogId: crypto.randomUUID(),
-  bookId: log.bookId,
-  startPage: log.startPage,
-  currentPage: log.endPage,
-  durationMinutes: log.durationMinutes,
-  note: log.note,
-  loggedAt: new Date().toISOString(),
-},
+            clientLogId: crypto.randomUUID(),
+            bookId: log.bookId,
+            startPage: log.startPage,
+            endPage: log.endPage,
+            pagesRead,
+            durationMinutes: log.durationMinutes,
+            note: log.note,
+            loggedAt: new Date().toISOString(),
+          },
         ],
       }),
     });

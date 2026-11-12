@@ -376,6 +376,34 @@ model FeedPostComment {
   userId    String   @db.Uuid
   content   String   @db.VarChar(1000)
   createdAt DateTime @default(now())
+model ReadingPageCredit {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  bookId     String   @db.Uuid
+  page       Int
+  creditedAt DateTime @default(now())
+
+  @@unique([userId, bookId, page])
+  @@index([userId, creditedAt])
+  @@map("reading_page_credits")
+}
+
+model ReadingTrack {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @db.Uuid
+  bookId              String    @db.Uuid
+  page                Int
+  activeSeconds       Int       @default(0)
+  lastAt              DateTime  @default(now())
+  logId               String?   @db.Uuid
+  sessionStartPage    Int       @default(0)
+  sessionPages        Int       @default(0)
+  sessionSeconds      Int       @default(0)
+  sessionLastCreditAt DateTime?
+
+  @@unique([userId, bookId])
+  @@map("reading_tracks")
+}
 
   @@index([postId, createdAt])
   @@map("feed_post_comments")

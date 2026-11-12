@@ -71,7 +71,7 @@ export const LeaderboardView: React.FC = () => {
           <div style={{ maxWidth: 520 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--amber-400)', marginBottom: 10 }}>
               <Trophy size={21} />
-              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Cộng đồng Noveli</span>
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Cộng đồng Novoli</span>
             </div>
             <h1 style={{ fontSize: 'clamp(28px, 5vw, 38px)', lineHeight: 1.15, marginBottom: 10 }}>
               Bảng xếp hạng

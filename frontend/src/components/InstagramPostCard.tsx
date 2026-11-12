@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { FeedPost, FeedComment, Book, ShelfType } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +35,8 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<FeedComment[]>(post.comments || []);
   const [showAllComments, setShowAllComments] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const commentInputRef = useRef<HTMLInputElement | null>(null);
   const [removed, setRemoved] = useState(false);
 
   const canDelete = !!user && (user.id === post.author.id || user.role === 'admin');
@@ -75,13 +77,21 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
     e.preventDefault();
     const text = commentText.trim();
     if (!text) return;
+    setCommentError(null);
     try {
       const res = await api.addFeedComment(post.id, text);
       setComments((prev) => [...prev, res.comment]);
       setCommentText('');
+      setShowAllComments(true); // mở danh sách để thấy ngay bình luận vừa gửi
     } catch (err) {
-      alert((err as Error).message || 'Không thể gửi bình luận');
+      setCommentError((err as Error).message || 'Không thể gửi bình luận');
     }
+  };
+
+  // Bấm biểu tượng bình luận: mở/đóng danh sách và đưa con trỏ vào ô nhập.
+  const handleCommentIcon = () => {
+    setShowAllComments((prev) => !prev);
+    setTimeout(() => commentInputRef.current?.focus(), 0);
   };
 
   const handleDelete = async () => {
@@ -281,8 +291,9 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
 
             {/* Comment */}
             <button
-              onClick={() => setShowAllComments(true)}
+              onClick={handleCommentIcon}
               style={{ cursor: 'pointer', color: 'var(--ig-text)' }}
+              title="Bình luận"
             >
               <MessageCircle size={24} strokeWidth={1.8} />
             </button>
@@ -317,8 +328,8 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
           <span>{post.caption}</span>
         </div>
 
-        {/* Comments Count & List Preview */}
-        {comments.length > 0 && (
+        {/* Danh sách bình luận */}
+        {comments.length > 0 ? (
           <div>
             {comments.length > 2 && !showAllComments && (
               <div
@@ -329,13 +340,22 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
               </div>
             )}
 
-            {(showAllComments ? comments : comments.slice(0, 2)).map((c) => (
+            {(showAllComments ? comments : comments.slice(-2)).map((c) => (
               <div key={c.id} style={{ fontSize: 13, color: 'var(--ig-text)', marginBottom: 2 }}>
                 <span style={{ fontWeight: 700, marginRight: 6 }}>{c.author}</span>
                 <span>{c.content}</span>
               </div>
             ))}
           </div>
+        ) : (
+          showAllComments && (
+            <div style={{ fontSize: 13, color: 'var(--ig-text-muted)' }}>
+              Chưa có bình luận nào. Hãy là người đầu tiên!
+            </div>
+          )
+        )}
+        {commentError && (
+          <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{commentError}</div>
         )}
       </div>
 
@@ -364,6 +384,7 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
         </div>
 
         <input
+          ref={commentInputRef}
           type="text"
           placeholder="Thêm bình luận..."
           value={commentText}

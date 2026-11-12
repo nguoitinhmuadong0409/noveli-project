@@ -3,10 +3,9 @@ import { ChevronLeft, ChevronRight, Clock, Minus, Plus, X } from 'lucide-react';
 import { Book, ShelfType } from '../types';
 import { api } from '../services/api';
 
-// ── Tải thư viện PDF.js từ CDN (không cần cài thêm gói) ──────────────────────
-const PDFJS_VERSION = '3.11.174';
-const PDFJS_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`;
-const PDFJS_WORKER_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`;
+// ── Thư viện PDF.js: đặt sẵn trong thư mục public của frontend (cùng tên miền) ──
+const PDFJS_URL = '/pdf.min.js';
+const PDFJS_WORKER_URL = '/pdf.worker.min.js';
 const HEARTBEAT_MS = 10000;
 
 interface PdfViewport {

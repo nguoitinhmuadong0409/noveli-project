@@ -1,94 +1,219 @@
-import { Request, Response } from 'express';
-import { prisma } from '../../config/prisma';
-import { ShelfType } from '@prisma/client';
-import { z } from 'zod';
+import React, { useState, useEffect } from 'react';
+import { ShelfItem, ShelfType, Book } from '../types';
+import { api } from '../services/api';
+import { BookReaderModal } from '../components/BookReaderModal';
+import { getBookCover } from '../utils/bookCover';
+import { BookOpen, CheckCircle, Clock, Trash2, Compass } from 'lucide-react';
 
-const upsertShelfSchema = z.object({
-  bookId: z.string().uuid(),
-  type: z.nativeEnum(ShelfType),
-  customShelfName: z.string().max(100).optional(),
-});
-
-export async function upsertShelf(req: Request, res: Response): Promise<void> {
-  const userId = req.userId!;
-
-  const parsed = upsertShelfSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
-    return;
-  }
-
-  const { bookId, type, customShelfName } = parsed.data;
-
-  // "Đã hoàn thành" chỉ do máy chủ đặt khi người dùng thật sự đọc hết sách trong trình đọc.
-  if (type === ShelfType.READ) {
-    res.status(403).json({ error: 'Sách chỉ được chuyển sang Đã hoàn thành khi bạn đọc hết trong trình đọc.' });
-    return;
-  }
-
-  const book = await prisma.book.findUnique({ where: { id: bookId }, select: { id: true } });
-  if (!book) {
-    res.status(404).json({ error: 'Book not found' });
-    return;
-  }
-
-  const shelf = await prisma.shelf.upsert({
-    where: { userId_bookId: { userId, bookId } },
-    update: {
-      type,
-      customShelfName: customShelfName ?? null,
-      startedAt: type === ShelfType.CURRENTLY_READING ? new Date() : undefined,
-    },
-    create: {
-      userId,
-      bookId,
-      type,
-      customShelfName: customShelfName ?? null,
-      startedAt: type === ShelfType.CURRENTLY_READING ? new Date() : null,
-    },
-  });
-
-  res.json({ shelf });
+interface ShelvesViewProps {
+  onSelectBook: (book: Book) => void;
+  onNavigateDiscover: () => void;
 }
 
-export async function getUserShelves(req: Request, res: Response): Promise<void> {
-  const userId = req.userId!;
-  const type = req.query.type as ShelfType | undefined;
+export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) => {
+  const [activeTab, setActiveTab] = useState<ShelfType>('CURRENTLY_READING');
+  const [shelves, setShelves] = useState<ShelfItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [readingBook, setReadingBook] = useState<Book | null>(null);
 
-  const shelves = await prisma.shelf.findMany({
-    where: { userId, ...(type ? { type } : {}) },
-    orderBy: { updatedAt: 'desc' },
-    include: {
-      book: {
-        select: {
-          id: true,
-          title: true,
-          authors: true,
-          coverUrl: true,
-          driveFileId: true,
-          pageCount: true,
-          avgRating: true,
-          categories: true,
-        },
-      },
-    },
-  });
+  const tabs: { type: ShelfType; label: string; icon: React.FC<{ size?: number }> }[] = [
+    { type: 'CURRENTLY_READING', label: 'Đang đọc', icon: BookOpen },
+    { type: 'WANT_TO_READ', label: 'Muốn đọc', icon: Clock },
+    { type: 'READ', label: 'Đã hoàn thành', icon: CheckCircle },
+  ];
 
-  res.json({ shelves });
-}
+  const loadShelves = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getUserShelves(activeTab);
+      setShelves(data.shelves || []);
+    } catch (err) {
+      console.error('Failed to load shelves:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-// Trang đọc được ghi tự động từ trình đọc (xem module reader), không cho tự gửi số trang.
-export async function updateProgress(_req: Request, res: Response): Promise<void> {
-  res.status(403).json({ error: 'Tiến độ đọc được ghi tự động khi bạn đọc sách trong trình đọc.' });
-}
+  useEffect(() => {
+    loadShelves();
+  }, [activeTab]);
 
-export async function deleteShelf(req: Request, res: Response): Promise<void> {
-  const userId = req.userId!;
-  const bookId = req.params.bookId as string;
+  const handleRemove = async (bookId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Bạn có chắc muốn xóa cuốn sách này khỏi kệ?')) return;
+    try {
+      await api.removeFromShelf(bookId);
+      setShelves((prev) => prev.filter((s) => s.bookId !== bookId));
+    } catch (err) {
+      alert((err as Error).message || 'Không thể xóa');
+    }
+  };
 
-  await prisma.shelf.deleteMany({
-    where: { userId, bookId },
-  });
+  return (
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px 80px' }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800 }}>Kệ Sách Của Tôi</h1>
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+          Tiến độ đọc được lưu tự động khi bạn đọc sách. Bấm vào sách để đọc tiếp.
+        </p>
+      </div>
 
-  res.json({ success: true, message: 'Book removed from shelf' });
-}
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 10, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, marginBottom: 24 }}>
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          const isSelected = activeTab === t.type;
+          return (
+            <button
+              key={t.type}
+              onClick={() => setActiveTab(t.type)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 16px',
+                borderRadius: 12,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: isSelected ? 'rgba(245, 158, 11, 0.12)' : 'transparent',
+                color: isSelected ? 'var(--amber-400)' : 'var(--text-secondary)',
+                border: isSelected ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+              }}
+            >
+              <Icon size={16} />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Shelf Content */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+          Đang tải kệ sách...
+        </div>
+      ) : shelves.length === 0 ? (
+        <div
+          className="card"
+          style={{
+            textAlign: 'center',
+            padding: '60px 20px',
+            backgroundColor: 'var(--bg-surface)',
+          }}
+        >
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📖</div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+            Kệ này hiện đang trống
+          </h3>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20 }}>
+            Chưa có cuốn sách nào trong danh mục này. Hãy tìm sách yêu thích để thêm vào!
+          </p>
+          <button onClick={onNavigateDiscover} className="btn btn-primary btn-sm">
+            <Compass size={16} /> Khám phá sách ngay
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {shelves.map((item) => {
+            const totalPages = item.book.pageCount ?? 0;
+            const progress =
+              totalPages > 0 ? Math.min(100, Math.round((item.currentPage / totalPages) * 100)) : 0;
+
+            return (
+              <div
+                key={item.id}
+                className="card card-interactive"
+                style={{
+                  display: 'flex',
+                  gap: 20,
+                  alignItems: 'center',
+                  padding: 16,
+                  cursor: 'pointer',
+                }}
+                onClick={() => setReadingBook(item.book)}
+              >
+                {/* Cover */}
+                <img
+                  src={getBookCover(item.book)}
+                  alt={item.book.title}
+                  style={{ width: 64, height: 96, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
+                />
+
+                {/* Details & Progress */}
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
+                    {item.book.title}
+                  </h4>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                    {item.book.authors?.join(', ') || 'Tác giả'}
+                  </p>
+
+                  {activeTab === 'CURRENTLY_READING' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--amber-400)', fontWeight: 600, marginBottom: 4 }}>
+                        <span>
+                          Đang đọc tới trang {item.currentPage}
+                          {totalPages > 0 ? ` / ${totalPages}` : ''}
+                        </span>
+                        {totalPages > 0 && <span>{progress}%</span>}
+                      </div>
+                      {totalPages > 0 && (
+                        <div
+                          style={{
+                            height: 6,
+                            borderRadius: 9999,
+                            backgroundColor: 'var(--bg-surface-elevated)',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: '100%',
+                              width: `${progress}%`,
+                              background: 'linear-gradient(90deg, var(--amber-500), var(--emerald-400))',
+                              borderRadius: 9999,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'READ' && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--emerald-400)', fontSize: 13, fontWeight: 600 }}>
+                      <CheckCircle size={14} /> Đã hoàn thành
+                      {totalPages > 0 ? ` ${totalPages} trang` : ''}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={(e) => handleRemove(item.bookId, e)}
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--text-muted)' }}
+                    title="Xóa khỏi kệ"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {readingBook && (
+        <BookReaderModal
+          book={readingBook}
+          onClose={() => setReadingBook(null)}
+          onShelfChanged={() => {
+            void loadShelves();
+          }}
+        />
+      )}
+    </div>
+  );
+};

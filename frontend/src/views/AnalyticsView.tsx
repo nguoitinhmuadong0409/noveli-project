@@ -6,6 +6,7 @@ import { DashboardStats, ShelfItem } from '../types';
 
 interface AnalyticsViewProps {
   onOpenLogModal: () => void;
+  // App.tsx cũ còn truyền prop này; trang mới tự lấy sách từ Kệ sách nên bỏ qua.
   books?: unknown;
 }
 
@@ -27,6 +28,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState<DashboardStats | null>(null);
   const [shelves, setShelves] = useState<ShelfItem[]>([]);
+  const [creditedPages, setCreditedPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +36,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
     setLoading(true);
     setError(null);
     try {
-      const [dash, shelfRes] = await Promise.all([api.getDashboard(), api.getUserShelves()]);
+      const [dash, shelfRes, summary] = await Promise.all([
+        api.getDashboard(),
+        api.getUserShelves(),
+        api.readerSummary(),
+      ]);
+      setCreditedPages(summary.creditedPages);
       setDashboard(dash);
       setShelves(shelfRes.shelves || []);
     } catch (err) {
@@ -78,13 +85,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
   }
 
   // ── Số liệu từ Kệ sách ─────────────────────────────────
-  const finishedShelves = shelves.filter((s) => s.type === 'READ');
-  const readingShelves = shelves.filter((s) => s.type === 'CURRENTLY_READING');
-
-  const booksDone = finishedShelves.length;
-  const pagesDone =
-    finishedShelves.reduce((sum, s) => sum + (s.book.pageCount ?? s.currentPage), 0) +
-    readingShelves.reduce((sum, s) => sum + s.currentPage, 0);
+  // Sách hoàn thành: chỉ do máy chủ đặt khi đọc hết trong trình đọc.
+  const booksDone = shelves.filter((s) => s.type === 'READ').length;
+  // Số trang: đếm các trang đã được tính khi đọc thật (mỗi trang chỉ tính một lần).
+  const pagesDone = creditedPages;
 
   const targetBooks = dashboard?.goal?.targetBooks ?? DEFAULT_TARGET_BOOKS;
   const targetPages = dashboard?.goal?.targetPages ?? DEFAULT_TARGET_PAGES;
@@ -119,7 +123,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
           </p>
         </div>
         <button onClick={onOpenLogModal} className="btn btn-primary btn-sm">
-          <Plus size={16} /> Ghi nhận trang sách
+          <Plus size={16} /> Đọc tiếp
         </button>
       </div>
 
@@ -167,8 +171,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ onOpenLogModal }) 
           <p style={{ fontSize: 14, color: 'var(--ig-text-secondary)', margin: 0, lineHeight: 1.5 }}>
             Kỷ lục dài nhất: <strong style={{ color: 'var(--ig-text)' }}>{longest} ngày</strong>.{' '}
             {streak > 0
-              ? 'Ghi nhận trang sách hôm nay để duy trì chuỗi!'
-              : 'Ghi nhận trang sách hôm nay để bắt đầu chuỗi đọc.'}
+              ? 'Đọc sách hôm nay để duy trì chuỗi!'
+              : 'Đọc sách hôm nay để bắt đầu chuỗi đọc.'}
           </p>
         </div>
 

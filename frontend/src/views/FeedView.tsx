@@ -187,15 +187,15 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </div>
             <p style={{ fontSize: 12, color: 'var(--ig-text-secondary)', marginBottom: 10 }}>
               {user.currentStreak > 0
-                ? `Bạn đang đọc liên tiếp ${user.currentStreak} ngày. Ghi nhận trang sách hôm nay để giữ chuỗi.`
-                : 'Ghi nhận trang sách hôm nay để bắt đầu chuỗi đọc.'}
+                ? `Bạn đang đọc liên tiếp ${user.currentStreak} ngày. Đọc sách hôm nay để giữ chuỗi.`
+                : 'Đọc sách hôm nay để bắt đầu chuỗi đọc.'}
             </p>
             <button
               onClick={onOpenLogModal}
               className="btn btn-primary btn-sm"
               style={{ width: '100%', justifyContent: 'center', fontSize: 12 }}
             >
-              <BookOpen size={13} /> Ghi nhận trang sách
+              <BookOpen size={13} /> Đọc tiếp
             </button>
           </div>
         )}

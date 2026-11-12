@@ -195,6 +195,22 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
         )}
       </div>
 
+      {/* Nội dung người đăng (nằm trên ảnh) */}
+      {post.caption && (
+        <div
+          style={{
+            padding: '0 16px 12px',
+            fontSize: 15,
+            color: 'var(--ig-text)',
+            lineHeight: 1.5,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {post.caption}
+        </div>
+      )}
+
       {/* ─── 2. Photo / Book Media (with Double Tap Like) ───── */}
       <div
         onDoubleClick={handleDoubleTap}
@@ -280,22 +296,28 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
             {/* Like */}
             <button
               onClick={() => void toggleLike()}
+              title="Thích"
               style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
                 cursor: 'pointer',
                 color: isLiked ? 'var(--ig-heart-red)' : 'var(--ig-text)',
                 transition: 'transform 100ms ease',
               }}
             >
               <Heart size={24} fill={isLiked ? 'var(--ig-heart-red)' : 'none'} strokeWidth={1.8} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ig-text)' }}>{likesCount}</span>
             </button>
 
             {/* Comment */}
             <button
               onClick={handleCommentIcon}
-              style={{ cursor: 'pointer', color: 'var(--ig-text)' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: 'var(--ig-text)' }}
               title="Bình luận"
             >
               <MessageCircle size={24} strokeWidth={1.8} />
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{comments.length}</span>
             </button>
 
             {/* Share / Discuss */}
@@ -315,17 +337,6 @@ export const InstagramPostCard: React.FC<InstagramPostCardProps> = ({
           >
             <Bookmark size={24} fill={saved ? 'var(--amber-400)' : 'none'} strokeWidth={1.8} />
           </button>
-        </div>
-
-        {/* Likes Count */}
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ig-text)', marginBottom: 6 }}>
-          {likesCount} lượt thích
-        </div>
-
-        {/* Caption */}
-        <div style={{ fontSize: 14, color: 'var(--ig-text)', lineHeight: 1.5, marginBottom: 6 }}>
-          <span style={{ fontWeight: 700, marginRight: 6 }}>{post.author.biDanh}</span>
-          <span>{post.caption}</span>
         </div>
 
         {/* Danh sách bình luận */}

@@ -466,6 +466,68 @@ export const api = {
     return { comment: { ...res.comment, createdAt: timeAgo(res.comment.createdAt) } };
   },
 
+  // ── Reader (trình đọc, tiến độ tự động) ──────────────
+  readerState: async (bookId: string): Promise<{
+    currentPage: number;
+    creditedCount: number;
+    totalPages: number | null;
+    shelfType: ShelfType | null;
+    dailyCredits: number;
+    dailyLimit: number;
+  }> => {
+    return fetchWithAuth(`/reader/${encodeURIComponent(bookId)}/state`);
+  },
+
+  readerProgress: async (data: { bookId: string; page: number; totalPages?: number }): Promise<{
+    ignored?: boolean;
+    page: number;
+    activeSeconds: number;
+    minSeconds: number;
+    credited: boolean;
+    pageCredited: boolean;
+    creditedCount: number;
+    totalPages: number | null;
+    shelfType: ShelfType | null;
+    completed: boolean;
+    dailyCredits: number;
+    dailyLimit: number;
+    dailyLimitReached: boolean;
+  }> => {
+    return fetchWithAuth('/reader/progress', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  readerSummary: async (): Promise<{ creditedPages: number; creditedToday: number }> => {
+    return fetchWithAuth('/reader/summary');
+  },
+
+  fetchBookPdf: async (bookId: string): Promise<ArrayBuffer> => {
+    const request = (token: string | null) =>
+      fetch(`${BASE_URL}/reader/${encodeURIComponent(bookId)}/file`, {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+    let res = await request(getToken());
+    if (res.status === 401) {
+      const newToken = await refreshAccessToken();
+      if (newToken) res = await request(newToken);
+    }
+    if (!res.ok) {
+      let msg = 'Không tải được file sách';
+      try {
+        const data = await res.json();
+        msg = data.error || msg;
+      } catch {
+        // ignore
+      }
+      throw new Error(msg);
+    }
+    return res.arrayBuffer();
+  },
+
   // ── AI Recommendations ───────────────────────────────
   getAIRecommendations: async (moodPrompt?: string): Promise<AIRecommendationResponse> => {
     return fetchWithAuth('/ai/recommendations', {

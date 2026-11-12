@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { FeedPost, Book, ShelfType } from '../types';
+import { api } from '../services/api';
+import { FeedPost, Book } from '../types';
 import { ShelvesView } from './ShelvesView';
 import { AnalyticsView } from './AnalyticsView';
-import { Grid, Bookmark, TrendingUp, Settings, Flame, ShieldCheck, Heart, MessageCircle } from 'lucide-react';
+import { Grid, Bookmark, TrendingUp, Flame, ShieldCheck, Heart, MessageCircle } from 'lucide-react';
 
 interface ProfileViewProps {
   userPosts: FeedPost[];
@@ -21,7 +22,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenLogModal,
 }) => {
   const { user } = useAuth();
+  const userId = user?.id;
   const [profileTab, setProfileTab] = useState<'posts' | 'shelves' | 'analytics'>('posts');
+  const [readCount, setReadCount] = useState(0);
+
+  // Số cuốn đã đọc = số sách trong mục "Đã hoàn thành" của kệ sách.
+  useEffect(() => {
+    if (!userId) {
+      setReadCount(0);
+      return;
+    }
+    api
+      .getUserShelves('READ')
+      .then((res) => setReadCount((res.shelves || []).length))
+      .catch(() => setReadCount(0));
+  }, [userId]);
 
   const highlights = [
     { title: '2026 Goal', icon: '🎯' },
@@ -32,7 +47,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <div style={{ maxWidth: 935, margin: '0 auto', padding: '30px 16px 80px' }}>
-      {/* ─── 1. Instagram Profile Header ─────────────────────── */}
+      {/* ─── 1. Profile Header ───────────────────────────────── */}
       <div
         style={{
           display: 'flex',
@@ -42,7 +57,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           flexWrap: 'wrap',
         }}
       >
-        {/* Large Avatar with Story Ring */}
         <div className="story-ring-active" style={{ padding: 4 }}>
           <div className="story-avatar-inner" style={{ width: 120, height: 120 }}>
             <div
@@ -63,7 +77,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </div>
 
-        {/* User Info & Stats */}
         <div style={{ flex: 1, minWidth: 280 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ig-text)' }}>
@@ -74,45 +87,35 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               className="btn btn-secondary btn-sm"
               style={{ fontSize: 13 }}
             >
-              Đổi tài khoản Demo
+              Đổi tài khoản
             </button>
             <button
               onClick={onOpenLogModal}
               className="btn btn-primary btn-sm"
               style={{ fontSize: 13 }}
             >
-              <Flame size={14} /> Ghi nhận trang sách
+              <Flame size={14} /> Đọc tiếp
             </button>
           </div>
 
-          {/* Stats Bar */}
-          <div style={{ display: 'flex', gap: 28, marginBottom: 16, fontSize: 15 }}>
+          {/* Stats Bar: số liệu thật */}
+          <div style={{ display: 'flex', gap: 28, marginBottom: 16, fontSize: 15, flexWrap: 'wrap' }}>
             <div>
-              <strong>{userPosts.length || 3}</strong>{' '}
+              <strong>{userPosts.length}</strong>{' '}
               <span style={{ color: 'var(--ig-text-secondary)' }}>bài viết</span>
             </div>
             <div>
-              <strong>8</strong>{' '}
+              <strong>{readCount}</strong>{' '}
               <span style={{ color: 'var(--ig-text-secondary)' }}>cuốn đã đọc</span>
             </div>
             <div style={{ color: 'var(--amber-400)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <Flame size={16} fill="var(--amber-400)" />
-              <strong>{user?.currentStreak || 7} ngày streak</strong>
+              <strong>{user?.currentStreak ?? 0} ngày streak</strong>
             </div>
           </div>
 
-          {/* Bio */}
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ig-text)' }}>
-              Độc Giả Yêu Sách & Cà Phê
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--ig-text-secondary)', marginTop: 4, lineHeight: 1.5 }}>
-              Đọc sách để hiểu mình, hiểu đời. Mục tiêu hoàn thành 24 cuốn sách trong năm 2026.
-              Tham gia thảo luận văn học ẩn danh cùng cộng đồng novoli ☕📚
-            </p>
-            <div style={{ fontSize: 12, color: 'var(--emerald-400)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-              <ShieldCheck size={13} /> Danh tính bảo mật Zero-Tracking
-            </div>
+          <div style={{ fontSize: 12, color: 'var(--emerald-400)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <ShieldCheck size={13} /> Danh tính bảo mật Zero-Tracking
           </div>
         </div>
       </div>
@@ -163,7 +166,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         ))}
       </div>
 
-      {/* ─── 3. Instagram Profile Tabs Bar ───────────────────── */}
+      {/* ─── 3. Tabs Bar ─────────────────────────────────────── */}
       <div
         style={{
           display: 'flex',
@@ -183,7 +186,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           return (
             <button
               key={tab.id}
-              onClick={() => setProfileTab(tab.id as any)}
+              onClick={() => setProfileTab(tab.id as 'posts' | 'shelves' | 'analytics')}
               style={{
                 display: 'flex',
                 alignItems: 'center',

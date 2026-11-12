@@ -7,31 +7,24 @@ import { ReelsQuotesView } from './views/ReelsQuotesView';
 import { ShelvesView } from './views/ShelvesView';
 import { ForumView } from './views/ForumView';
 import { ProfileView } from './views/ProfileView';
-import { AdminView } from './views/AdminView';
-import { LeaderboardView } from './views/LeaderboardView';
-import { ChatView } from './views/ChatView';
-// 1. ĐÃ THÊM: Import AnalyticsView
-import { AnalyticsView } from './views/AnalyticsView';
-
 import { StoryViewerModal } from './components/StoryViewerModal';
 import { CreatePostModal } from './components/CreatePostModal';
 import { BookDetailModal } from './components/BookDetailModal';
-import { ReadingLogModal } from './components/ReadingLogModal';
 import { AuthModal } from './components/AuthModal';
 import { ThemeSelectorModal } from './components/ThemeSelectorModal';
+import { AdminView } from './views/AdminView';
+import { LeaderboardView } from './views/LeaderboardView';
+import { ChatView } from './views/ChatView';
 import { FeedPost, Story, Book, ShelfType } from './types';
 import { api } from './services/api';
-// 2. ĐÃ THÊM: Import BarChart2 icon cho Thống kê
-import { Home, Compass, Film, Bookmark, MessageSquare, ShieldCheck, Trophy, MessagesSquare, BarChart2 } from 'lucide-react';
+import { Home, Compass, Film, Bookmark, MessageSquare, ShieldCheck, Trophy, MessagesSquare } from 'lucide-react';
 
 function InstagramApp() {
   const { user } = useAuth();
-  // Lưu ý: Thầy cần đảm bảo type IgTab trong file InstagramSidebar có bao gồm 'analytics'
-  const [activeTab, setActiveTab] = useState<IgTab | 'analytics'>('home');
+  const [activeTab, setActiveTab] = useState<IgTab>('home');
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [openCreateModal, setOpenCreateModal] = useState(false);
-  const [openLogModal, setOpenLogModal] = useState(false);
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [openThemeModal, setOpenThemeModal] = useState(false);
 
@@ -69,15 +62,14 @@ function InstagramApp() {
     setActiveTab('home');
   };
 
-  // 3. ĐÃ THÊM: Mục Analytics vào menu điều hướng dưới cùng (cho Mobile)
   const mobileNavItems = [
     { id: 'home', label: 'Trang chủ', icon: Home },
     { id: 'explore', label: 'Khám phá', icon: Compass },
     { id: 'reels', label: 'Trích dẫn', icon: Film },
     { id: 'shelves', label: 'Kệ sách', icon: Bookmark },
+    { id: 'leaderboard', label: 'Bảng xếp hạng', icon: Trophy },
     { id: 'chat', label: 'Trò chuyện', icon: MessagesSquare },
     { id: 'forum', label: 'Diễn đàn', icon: MessageSquare },
-    { id: 'leaderboard', label: 'Bảng xếp hạng', icon: Trophy },
     ...(user?.role === 'admin' ? [{ id: 'admin' as const, label: 'Quản trị', icon: ShieldCheck }] : []),
   ] as const;
 
@@ -85,11 +77,11 @@ function InstagramApp() {
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--ig-bg)' }}>
       {/* ─── 1. Desktop Left Instagram Sidebar ───────────────── */}
       <InstagramSidebar
-        activeTab={activeTab as any}
-        onTabChange={(tab) => setActiveTab(tab)}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         onOpenCreateModal={() => setOpenCreateModal(true)}
         onOpenAuthModal={() => setOpenAuthModal(true)}
-        onOpenLogModal={() => setOpenLogModal(true)}
+        onOpenLogModal={() => setActiveTab('shelves')}
         onOpenThemeModal={() => setOpenThemeModal(true)}
       />
 
@@ -102,7 +94,7 @@ function InstagramApp() {
             onSaveToShelf={handleSaveToShelf}
             onSelectStory={(story) => setSelectedStory(story)}
             onOpenCreatePost={() => setOpenCreateModal(true)}
-            onOpenLogModal={() => setOpenLogModal(true)}
+            onOpenLogModal={() => setActiveTab('shelves')}
             onOpenAuthModal={() => setOpenAuthModal(true)}
           />
         )}
@@ -122,14 +114,6 @@ function InstagramApp() {
           />
         )}
 
-        {/* 4. ĐÃ THÊM: Gọi component AnalyticsView */}
-        {activeTab === 'analytics' && (
-          <AnalyticsView 
-            onOpenLogModal={() => setOpenLogModal(true)} 
-            books={[]} // TODO: Thay mảng rỗng bằng state chứa dữ liệu Kệ sách thật (nếu có)
-          />
-        )}
-
         {activeTab === 'forum' && <ForumView />}
 
         {activeTab === 'leaderboard' && <LeaderboardView />}
@@ -144,7 +128,7 @@ function InstagramApp() {
             onSelectBook={(book) => setSelectedBook(book)}
             onNavigateDiscover={() => setActiveTab('explore')}
             onOpenAuthModal={() => setOpenAuthModal(true)}
-            onOpenLogModal={() => setOpenLogModal(true)}
+            onOpenLogModal={() => setActiveTab('shelves')}
           />
         )}
       </main>
@@ -173,7 +157,7 @@ function InstagramApp() {
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id as any)}
+              onClick={() => setActiveTab(item.id)}
               style={{
                 flex: 1,
                 display: 'flex',
@@ -250,9 +234,6 @@ function InstagramApp() {
         />
       )}
 
-      {openLogModal && (
-        <ReadingLogModal onClose={() => setOpenLogModal(false)} />
-      )}
 
       {openAuthModal && (
         <AuthModal onClose={() => setOpenAuthModal(false)} />

@@ -20,6 +20,12 @@ export async function upsertShelf(req: Request, res: Response): Promise<void> {
 
   const { bookId, type, customShelfName } = parsed.data;
 
+  // "Đã hoàn thành" chỉ do máy chủ đặt khi người dùng thật sự đọc hết sách trong trình đọc.
+  if (type === ShelfType.READ) {
+    res.status(403).json({ error: 'Sách chỉ được chuyển sang Đã hoàn thành khi bạn đọc hết trong trình đọc.' });
+    return;
+  }
+
   const book = await prisma.book.findUnique({ where: { id: bookId }, select: { id: true } });
   if (!book) {
     res.status(404).json({ error: 'Book not found' });
@@ -32,7 +38,6 @@ export async function upsertShelf(req: Request, res: Response): Promise<void> {
       type,
       customShelfName: customShelfName ?? null,
       startedAt: type === ShelfType.CURRENTLY_READING ? new Date() : undefined,
-      finishedAt: type === ShelfType.READ ? new Date() : undefined,
     },
     create: {
       userId,
@@ -40,7 +45,6 @@ export async function upsertShelf(req: Request, res: Response): Promise<void> {
       type,
       customShelfName: customShelfName ?? null,
       startedAt: type === ShelfType.CURRENTLY_READING ? new Date() : null,
-      finishedAt: type === ShelfType.READ ? new Date() : null,
     },
   });
 
@@ -73,45 +77,9 @@ export async function getUserShelves(req: Request, res: Response): Promise<void>
   res.json({ shelves });
 }
 
-const updateProgressSchema = z.object({
-  currentPage: z.number().int().min(0),
-});
-
-export async function updateProgress(req: Request, res: Response): Promise<void> {
-  const userId = req.userId!;
-  const bookId = req.params.bookId as string;
-
-  const parsed = updateProgressSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
-    return;
-  }
-
-  const { currentPage } = parsed.data;
-
-  const existingShelf = await prisma.shelf.findUnique({
-    where: { userId_bookId: { userId, bookId } },
-    include: { book: { select: { pageCount: true } } },
-  });
-
-  if (!existingShelf) {
-    res.status(404).json({ error: 'Book is not on your shelf' });
-    return;
-  }
-
-  const totalPages = existingShelf.book?.pageCount;
-  const isFinished = totalPages ? currentPage >= totalPages : false;
-
-  const updated = await prisma.shelf.update({
-    where: { userId_bookId: { userId, bookId } },
-    data: {
-      currentPage,
-      type: isFinished ? ShelfType.READ : existingShelf.type,
-      finishedAt: isFinished ? new Date() : existingShelf.finishedAt,
-    },
-  });
-
-  res.json({ shelf: updated, isFinished });
+// Trang đọc được ghi tự động từ trình đọc (xem module reader), không cho tự gửi số trang.
+export async function updateProgress(_req: Request, res: Response): Promise<void> {
+  res.status(403).json({ error: 'Tiến độ đọc được ghi tự động khi bạn đọc sách trong trình đọc.' });
 }
 
 export async function deleteShelf(req: Request, res: Response): Promise<void> {

@@ -12,6 +12,7 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 // ─────────────────────────────────────────────
 //  ENUMS
 // ─────────────────────────────────────────────
@@ -52,7 +53,8 @@ model User {
   lastReadDate     DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @default(now()) @updatedAt
-role             String    @default("user")
+  role             String    @default("user")
+
   refreshTokens     RefreshToken[]
   pushSubscriptions PushSubscription[]
   shelves           Shelf[]
@@ -331,9 +333,11 @@ model Goal {
   @@index([userId, year(sort: Desc)])
   @@map("goals")
 }
-// Thêm model này vào cuối file schema.prisma
-// Không dùng @relation tới Post/Thread nên KHÔNG cần sửa model Post hay Thread.
-// Lưu voterHash (băm theo từng thread) chứ không lưu userId, nên vẫn ẩn danh.
+
+// ─────────────────────────────────────────────
+//  11. FORUM UPVOTES
+//  Không dùng @relation tới Post/Thread, lưu voterHash (không lưu userId) nên vẫn ẩn danh.
+// ─────────────────────────────────────────────
 
 model PostUpvote {
   id        String   @id @default(uuid())
@@ -345,6 +349,11 @@ model PostUpvote {
   @@unique([postId, voterHash])
   @@index([threadId, voterHash])
 }
+
+// ─────────────────────────────────────────────
+//  12. BẢNG TIN (bài đăng trang chủ)
+// ─────────────────────────────────────────────
+
 model FeedPost {
   id          String   @id @default(uuid()) @db.Uuid
   userId      String   @db.Uuid
@@ -353,6 +362,9 @@ model FeedPost {
   image       String   @db.Text
   currentPage Int?
   createdAt   DateTime @default(now())
+
+  likes    FeedPostLike[]
+  comments FeedPostComment[]
 
   @@index([createdAt(sort: Desc)])
   @@index([userId])
@@ -365,8 +377,10 @@ model FeedPostLike {
   userId    String   @db.Uuid
   createdAt DateTime @default(now())
 
+  post FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
   @@unique([postId, userId])
-  @@index([userId])
+  @@index([postId])
   @@map("feed_post_likes")
 }
 
@@ -376,6 +390,17 @@ model FeedPostComment {
   userId    String   @db.Uuid
   content   String   @db.VarChar(1000)
   createdAt DateTime @default(now())
+
+  post FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt(sort: Asc)])
+  @@map("feed_post_comments")
+}
+
+// ─────────────────────────────────────────────
+//  13. TRÌNH ĐỌC: trang được tính điểm và theo dõi phiên đọc
+// ─────────────────────────────────────────────
+
 model ReadingPageCredit {
   id         String   @id @default(uuid()) @db.Uuid
   userId     String   @db.Uuid
@@ -403,8 +428,4 @@ model ReadingTrack {
 
   @@unique([userId, bookId])
   @@map("reading_tracks")
-}
-
-  @@index([postId, createdAt])
-  @@map("feed_post_comments")
 }

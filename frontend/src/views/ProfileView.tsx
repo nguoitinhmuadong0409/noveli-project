@@ -25,18 +25,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const userId = user?.id;
   const [profileTab, setProfileTab] = useState<'posts' | 'shelves' | 'analytics'>('posts');
   const [readCount, setReadCount] = useState(0);
+  const [streak, setStreak] = useState<number | null>(null);
 
-  // Số cuốn đã đọc = số sách trong mục "Đã hoàn thành" của kệ sách.
+  // Số cuốn đã đọc và chuỗi streak: lấy mới từ máy chủ mỗi khi vào trang hoặc đổi tab,
+  // để luôn khớp với số liệu ở tab Thống kê.
   useEffect(() => {
     if (!userId) {
       setReadCount(0);
+      setStreak(null);
       return;
     }
     api
       .getUserShelves('READ')
       .then((res) => setReadCount((res.shelves || []).length))
       .catch(() => setReadCount(0));
-  }, [userId]);
+    api
+      .getMe()
+      .then((res) => setStreak(res.user.currentStreak))
+      .catch(() => undefined);
+  }, [userId, profileTab]);
 
   const highlights = [
     { title: '2026 Goal', icon: '🎯' },
@@ -110,7 +117,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
             <div style={{ color: 'var(--amber-400)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <Flame size={16} fill="var(--amber-400)" />
-              <strong>{user?.currentStreak ?? 0} ngày streak</strong>
+              <strong>{streak ?? user?.currentStreak ?? 0} ngày streak</strong>
             </div>
           </div>
 

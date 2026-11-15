@@ -7,6 +7,8 @@ import { prisma } from '../../config/prisma';
 // ─── Cấu hình (có thể đổi bằng biến môi trường trên Render) ─────────────────
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || ''; // model dự phòng khi model chính quá tải (tùy chọn)
+// Gemini 3 mặc định "suy nghĩ sâu" nên rất chậm; chat chỉ cần mức nhẹ. Giá trị: minimal | low | medium | high | off
+const THINKING_LEVEL = process.env.GEMINI_THINKING_LEVEL || 'low';
 const DAILY_LIMIT = Number(process.env.AI_CHAT_DAILY_LIMIT) || 30; // số tin mỗi người mỗi ngày
 const MIN_INTERVAL_MS = 3000; // hai tin cách nhau tối thiểu 3 giây
 const MAX_MESSAGES = 12; // số tin gần nhất gửi cho AI
@@ -83,6 +85,12 @@ async function buildShelfContext(userId: string): Promise<string> {
 }
 
 // ─── Gọi Gemini, tự thử lại khi quá tải hoặc quá chậm ───────────────────────
+// Chỉ các model Gemini 3 trở lên dùng thinkingLevel (model đời cũ dùng cách khác nên không gửi).
+function usesThinkingLevel(model: string): boolean {
+  const m = model.match(/gemini-(\d+)/);
+  return !!m && Number(m[1]) >= 3 && THINKING_LEVEL !== 'off';
+}
+
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const ATTEMPTS_PER_MODEL = 3;
 
@@ -95,18 +103,22 @@ type GeminiResult =
   | { ok: false; status: number; detail: string; model: string };
 
 // Hết lượt thử với model chính thì chuyển sang model dự phòng (nếu có đặt GEMINI_FALLBACK_MODEL).
-async function generateWithRetry(apiKey: string, body: unknown): Promise<GeminiResult> {
+async function generateWithRetry(
+  apiKey: string,
+  buildBody: (model: string, withThinking: boolean) => unknown,
+): Promise<GeminiResult> {
   const models = [GEMINI_MODEL, GEMINI_FALLBACK_MODEL].filter(
     (m, i, arr) => m && arr.indexOf(m) === i,
   );
   let last: GeminiResult = { ok: false, status: 0, detail: 'không có model', model: GEMINI_MODEL };
 
   for (const model of models) {
+    let withThinking = true; // nếu model không nhận tham số này (lỗi 400) thì bỏ đi và thử lại
     for (let attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
       try {
         const response = await axios.post(
           `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-          body,
+          buildBody(model, withThinking),
           {
             headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
             timeout: 30000,
@@ -122,6 +134,10 @@ async function generateWithRetry(apiKey: string, body: unknown): Promise<GeminiR
           model,
         };
         console.warn(`[AI Chat] ${model} lần ${attempt}: lỗi ${response.status}`);
+        if (response.status === 400 && withThinking && usesThinkingLevel(model)) {
+          withThinking = false; // có thể model không hỗ trợ thinkingLevel: thử lại không kèm tham số
+          continue;
+        }
         if (!RETRYABLE_STATUSES.has(response.status)) break; // lỗi không thể thử lại (400/403/404...)
       } catch (err) {
         last = { ok: false, status: 0, detail: String(err).slice(0, 300), model };
@@ -191,14 +207,23 @@ export async function chat(req: Request, res: Response): Promise<void> {
       shelfContext,
     ].join('\n');
 
-    const result = await generateWithRetry(apiKey, {
+    const contents = messages.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+
+    const result = await generateWithRetry(apiKey, (model, withThinking) => ({
       systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: messages.map((m) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-      })),
-      generationConfig: { maxOutputTokens: 1500, temperature: 0.7 },
-    });
+      contents,
+      generationConfig: {
+        maxOutputTokens: 1500,
+        // Gemini 3 nên giữ nhiệt độ mặc định; model cũ hơn thì dùng 0.7.
+        ...(usesThinkingLevel(model) ? {} : { temperature: 0.7 }),
+        ...(withThinking && usesThinkingLevel(model)
+          ? { thinkingConfig: { thinkingLevel: THINKING_LEVEL } }
+          : {}),
+      },
+    }));
 
     if (!result.ok) {
       entry.count = Math.max(0, entry.count - 1); // lỗi phía AI thì không tính vào hạn mức

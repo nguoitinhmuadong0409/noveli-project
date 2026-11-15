@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import { z } from 'zod';
 import { ShelfType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 // ─── Cấu hình (có thể đổi bằng biến môi trường trên Render) ─────────────────
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || ''; // model dự phòng khi model chính quá tải (tùy chọn)
 const DAILY_LIMIT = Number(process.env.AI_CHAT_DAILY_LIMIT) || 30; // số tin mỗi người mỗi ngày
 const MIN_INTERVAL_MS = 3000; // hai tin cách nhau tối thiểu 3 giây
 const MAX_MESSAGES = 12; // số tin gần nhất gửi cho AI
@@ -81,6 +82,57 @@ async function buildShelfContext(userId: string): Promise<string> {
   ].join('\n\n');
 }
 
+// ─── Gọi Gemini, tự thử lại khi quá tải hoặc quá chậm ───────────────────────
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const ATTEMPTS_PER_MODEL = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type GeminiResult =
+  | { ok: true; response: AxiosResponse }
+  | { ok: false; status: number; detail: string; model: string };
+
+// Hết lượt thử với model chính thì chuyển sang model dự phòng (nếu có đặt GEMINI_FALLBACK_MODEL).
+async function generateWithRetry(apiKey: string, body: unknown): Promise<GeminiResult> {
+  const models = [GEMINI_MODEL, GEMINI_FALLBACK_MODEL].filter(
+    (m, i, arr) => m && arr.indexOf(m) === i,
+  );
+  let last: GeminiResult = { ok: false, status: 0, detail: 'không có model', model: GEMINI_MODEL };
+
+  for (const model of models) {
+    for (let attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
+      try {
+        const response = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+          body,
+          {
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+            timeout: 30000,
+            validateStatus: () => true,
+          },
+        );
+        if (response.status === 200) return { ok: true, response };
+
+        last = {
+          ok: false,
+          status: response.status,
+          detail: JSON.stringify(response.data?.error ?? response.data).slice(0, 500),
+          model,
+        };
+        console.warn(`[AI Chat] ${model} lần ${attempt}: lỗi ${response.status}`);
+        if (!RETRYABLE_STATUSES.has(response.status)) break; // lỗi không thể thử lại (400/403/404...)
+      } catch (err) {
+        last = { ok: false, status: 0, detail: String(err).slice(0, 300), model };
+        console.warn(`[AI Chat] ${model} lần ${attempt}: ${last.detail}`);
+      }
+      if (attempt < ATTEMPTS_PER_MODEL) await sleep(800 * attempt);
+    }
+  }
+  return last;
+}
+
 // ─── POST /api/v1/ai/chat ────────────────────────────────────────────────────
 export async function chat(req: Request, res: Response): Promise<void> {
   const userId = req.userId!;
@@ -139,34 +191,22 @@ export async function chat(req: Request, res: Response): Promise<void> {
       shelfContext,
     ].join('\n');
 
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
-      {
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: messages.map((m) => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }],
-        })),
-        generationConfig: { maxOutputTokens: 1500, temperature: 0.7 },
-      },
-      {
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        timeout: 30000,
-        validateStatus: () => true,
-      },
-    );
+    const result = await generateWithRetry(apiKey, {
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: messages.map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      })),
+      generationConfig: { maxOutputTokens: 1500, temperature: 0.7 },
+    });
 
-    if (response.status !== 200) {
+    if (!result.ok) {
       entry.count = Math.max(0, entry.count - 1); // lỗi phía AI thì không tính vào hạn mức
-      console.error(
-        '[AI Chat] Gemini trả lỗi',
-        response.status,
-        JSON.stringify(response.data?.error ?? response.data).slice(0, 500),
-        `(model: ${GEMINI_MODEL})`,
-      );
+      console.error('[AI Chat] Gemini lỗi', result.status, result.detail, `(model: ${result.model})`);
       res.status(502).json({ error: 'Trợ lý AI tạm thời không phản hồi, hãy thử lại sau ít phút.' });
       return;
     }
+    const response = result.response;
 
     const candidate = response.data?.candidates?.[0];
     const parts: Array<{ text?: string }> = candidate?.content?.parts ?? [];

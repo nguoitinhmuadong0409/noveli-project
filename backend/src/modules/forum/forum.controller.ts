@@ -51,7 +51,6 @@ export async function createThread(req: Request, res: Response): Promise<void> {
         tags: true,
         hasSpoilers: true,
         displayAlias: true,
-        isOp: true,
         viewsCount: true,
         postsCount: true,
         createdAt: true,

@@ -19,6 +19,7 @@ import { analyticsRouter } from './modules/analytics/analytics.router';
 import { adminRouter } from './modules/admin/admin.router';
 import { leaderboardRouter } from './modules/leaderboard/leaderboard.router';
 import { chatRouter } from './modules/chat/chat.router';
+import { aiChatRouter } from './modules/ai/aiChat.router';
 
 export function createApp() {
   const app = express();
@@ -69,7 +70,7 @@ export function createApp() {
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
-
+app.use('/api/v1/ai/chat', aiChatRouter);
   // ── 7. API Routes ──────────────────────────────────────────────────────────
   const API_PREFIX = '/api/v1';
 

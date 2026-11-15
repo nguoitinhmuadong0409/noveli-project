@@ -19,6 +19,11 @@ import {
 const API_ORIGIN = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') ?? '';
 const BASE_URL = `${API_ORIGIN}/api/v1`;
 
+export interface AiChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 function timeAgo(iso: string): string {
   const time = new Date(iso).getTime();
   if (Number.isNaN(time)) return iso;
@@ -458,10 +463,10 @@ export const api = {
     return fetchWithAuth(`/feed/posts/${encodeURIComponent(postId)}/like`, { method: 'POST' });
   },
 
-  addFeedComment: async (postId: string, content: string): Promise<{ comment: FeedComment }> => {
+  addFeedComment: async (postId: string, content: string, parentId?: string | null): Promise<{ comment: FeedComment }> => {
     const res = await fetchWithAuth<{ comment: FeedComment }>(
       `/feed/posts/${encodeURIComponent(postId)}/comments`,
-      { method: 'POST', body: JSON.stringify({ content }) },
+      { method: 'POST', body: JSON.stringify({ content, ...(parentId ? { parentId } : {}) }) },
     );
     return { comment: { ...res.comment, createdAt: timeAgo(res.comment.createdAt) } };
   },
@@ -526,6 +531,14 @@ export const api = {
       throw new Error(msg);
     }
     return res.arrayBuffer();
+  },
+
+  // ── Chat với AI (trong Kệ sách) ──────────────────────
+  chatWithAI: async (messages: AiChatMessage[]): Promise<{ reply: string }> => {
+    return fetchWithAuth('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ messages }),
+    });
   },
 
   // ── AI Recommendations ───────────────────────────────

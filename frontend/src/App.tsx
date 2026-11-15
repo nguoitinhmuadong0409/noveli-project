@@ -57,6 +57,11 @@ function InstagramApp() {
     }
   };
 
+  // Cập nhật một bài đăng trong danh sách (ví dụ khi thích ở trang Trích dẫn) để các trang luôn khớp nhau.
+  const handlePostUpdate = (postId: string, patch: Partial<FeedPost>) => {
+    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, ...patch } : p)));
+  };
+
   const handlePostCreated = (newPost: FeedPost) => {
     setPosts((prev) => [newPost, ...prev]);
     setActiveTab('home');
@@ -104,7 +109,11 @@ function InstagramApp() {
         )}
 
         {activeTab === 'reels' && (
-          <ReelsQuotesView onSelectBook={(book) => setSelectedBook(book)} />
+          <ReelsQuotesView
+            posts={posts}
+            onSelectBook={(book) => setSelectedBook(book)}
+            onPostUpdate={handlePostUpdate}
+          />
         )}
 
         {activeTab === 'shelves' && (

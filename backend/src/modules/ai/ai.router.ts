@@ -1,16 +1,8 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import { authenticate } from '../../middlewares/authenticate';
-import { chat } from './aiChat.controller';
+import { aiRateLimiter } from '../../middlewares/rateLimiter';
+import { getAIRecommendations } from './ai.controller';
 
-type Handler = (req: Request, res: Response) => Promise<void>;
+export const aiRouter = Router();
 
-// Bắt lỗi bất đồng bộ để không làm sập máy chủ.
-const wrap =
-  (fn: Handler) =>
-  (req: Request, res: Response, next: NextFunction): void => {
-    fn(req, res).catch(next);
-  };
-
-export const aiChatRouter = Router();
-
-aiChatRouter.post('/', authenticate, wrap(chat));
+aiRouter.post('/recommendations', authenticate, aiRateLimiter, getAIRecommendations);

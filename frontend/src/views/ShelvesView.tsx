@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ShelfItem, ShelfType, Book } from '../types';
-import { api } from '../services/api';
+import { api, AiChatMessage } from '../services/api';
+import { ShelfAiChat } from '../components/ShelfAiChat';
 import { BookReaderModal } from '../components/BookReaderModal';
 import { getBookCover } from '../utils/bookCover';
-import { BookOpen, CheckCircle, Clock, Trash2, Compass } from 'lucide-react';
+import { BookOpen, CheckCircle, Clock, Trash2, Compass, Sparkles } from 'lucide-react';
+
+type ShelfTab = ShelfType | 'AI_CHAT';
 
 interface ShelvesViewProps {
   onSelectBook: (book: Book) => void;
@@ -11,18 +14,24 @@ interface ShelvesViewProps {
 }
 
 export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) => {
-  const [activeTab, setActiveTab] = useState<ShelfType>('CURRENTLY_READING');
+  const [activeTab, setActiveTab] = useState<ShelfTab>('CURRENTLY_READING');
+  const [chatMessages, setChatMessages] = useState<AiChatMessage[]>([]);
   const [shelves, setShelves] = useState<ShelfItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [readingBook, setReadingBook] = useState<Book | null>(null);
 
-  const tabs: { type: ShelfType; label: string; icon: React.FC<{ size?: number }> }[] = [
+  const tabs: { type: ShelfTab; label: string; icon: React.FC<{ size?: number }> }[] = [
     { type: 'CURRENTLY_READING', label: 'Đang đọc', icon: BookOpen },
     { type: 'WANT_TO_READ', label: 'Muốn đọc', icon: Clock },
     { type: 'READ', label: 'Đã hoàn thành', icon: CheckCircle },
+    { type: 'AI_CHAT', label: 'Chat với AI', icon: Sparkles },
   ];
 
   const loadShelves = async () => {
+    if (activeTab === 'AI_CHAT') {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await api.getUserShelves(activeTab);
@@ -54,7 +63,7 @@ export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) 
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800 }}>Kệ Sách Của Tôi</h1>
         <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-          Tiến độ đọc được lưu tự động khi bạn đọc sách. Bấm vào sách để đọc tiếp.
+          Tiến độ đọc được lưu tự động khi bạn đọc sách. Bấm vào sách để đọc tiếp, hoặc trò chuyện với AI về kệ sách của bạn.
         </p>
       </div>
 
@@ -89,7 +98,9 @@ export const ShelvesView: React.FC<ShelvesViewProps> = ({ onNavigateDiscover }) 
       </div>
 
       {/* Shelf Content */}
-      {loading ? (
+      {activeTab === 'AI_CHAT' ? (
+        <ShelfAiChat messages={chatMessages} onChange={setChatMessages} />
+      ) : loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
           Đang tải kệ sách...
         </div>
